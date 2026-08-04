@@ -1,0 +1,13 @@
+{
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.exclude": {
+    ".next": true,
+    ".sites-runtime": true,
+    ".wrangler": true,
+    "dist": true
+  },
+  "typescript.tsdk": "node_modules/typescript/lib"
+}

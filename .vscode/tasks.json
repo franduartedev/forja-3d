@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FORJA: abrir desarrollo",
+      "type": "npm",
+      "script": "dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "build"
+    },
+    {
+      "label": "FORJA: verificar todo",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "FORJA: pruebas rápidas",
+      "type": "npm",
+      "script": "test:unit",
+      "problemMatcher": [],
+      "group": "test"
+    }
+  ]
+}

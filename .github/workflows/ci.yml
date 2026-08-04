@@ -1,0 +1,31 @@
+name: Verificar FORJA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Revisar estilo
+        run: npm run lint
+      - name: Revisar tipos
+        run: npm run typecheck
+      - name: Ejecutar pruebas y compilación
+        run: npm test
+
