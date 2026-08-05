@@ -1,0 +1,47 @@
+name: Reportar un error
+description: Informá un comportamiento reproducible de FORJA.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Gracias por ayudarnos a mejorar FORJA.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Qué ocurrió
+      description: Contanos qué esperabas y qué sucedió realmente.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducirlo
+      placeholder: "1. Abrí...\n2. Cambié...\n3. Exporté..."
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Navegador y sistema
+      placeholder: Firefox 141 en EndeavourOS
+    validations:
+      required: true
+  - type: dropdown
+    id: design
+    attributes:
+      label: Tipo de diseño
+      options:
+        - Caja
+        - Soporte L
+        - Placa
+        - Diseño libre
+        - Biblioteca de diseños
+        - Otro
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Capturas o proyecto de ejemplo
+      description: No adjuntes información privada.

@@ -1,0 +1,31 @@
+name: Proponer una mejora
+description: Sugerí una función o mejora de experiencia.
+title: "[Idea]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Necesidad
+      description: ¿Qué intentás crear o resolver?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Propuesta
+      description: Explicá cómo imaginás la solución.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas consideradas
+      description: Opcional. ¿Cómo resolvés esto actualmente?
+  - type: checkboxes
+    id: principles
+    attributes:
+      label: Principios del proyecto
+      options:
+        - label: La propuesta mantiene una experiencia accesible para personas sin conocimientos de CAD.
+          required: true
