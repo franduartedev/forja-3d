@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { pathToFileURL } from "node:url";
@@ -8,6 +9,9 @@ import {
   SliceRequestError,
   validateSliceFormData,
 } from "./slice-request.mjs";
+
+import { SlicingError } from "./prusa-runner.mjs";
+import { sliceUploadedModel } from "./slice-service.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +41,9 @@ export async function getPrusaSlicerVersion() {
     .find((line) => line.startsWith("PrusaSlicer-"));
 
   if (!firstLine) {
-    throw new Error("No se pudo identificar la versión de PrusaSlicer.");
+    throw new Error(
+      "No se pudo identificar la versión de PrusaSlicer.",
+    );
   }
 
   return firstLine;
@@ -51,6 +57,24 @@ function sendJson(response, statusCode, body, extraHeaders = {}) {
   });
 
   response.end(`${JSON.stringify(body)}\n`);
+}
+
+function sendGcode(response, result, requestId, settings) {
+  response.writeHead(200, {
+    "Content-Type": "text/x-gcode",
+    "Content-Disposition":
+      `attachment; filename="${result.fileName}"`,
+    "Content-Length": String(result.gcode.length),
+    "Cache-Control": "no-store",
+    "X-Request-Id": requestId,
+    "X-Printer-Profile-Id": settings.printerProfileId,
+    "X-Layer-Height-Mm": String(settings.layerHeightMm),
+    "X-Infill-Percent": String(settings.infillPercent),
+    "X-Supports": String(settings.supports),
+    "X-Material": settings.material,
+  });
+
+  response.end(result.gcode);
 }
 
 async function readRequestBody(request, maxBytes) {
@@ -88,7 +112,9 @@ async function parseMultipartFormData(request) {
     );
   }
 
-  const contentLength = Number(request.headers["content-length"]);
+  const contentLength = Number(
+    request.headers["content-length"],
+  );
 
   if (
     Number.isFinite(contentLength) &&
@@ -101,16 +127,22 @@ async function parseMultipartFormData(request) {
     );
   }
 
-  const body = await readRequestBody(request, MAX_MULTIPART_BYTES);
+  const body = await readRequestBody(
+    request,
+    MAX_MULTIPART_BYTES,
+  );
 
-  const webRequest = new Request("http://localhost/v1/slice", {
-    method: "POST",
-    headers: {
-      "content-type": contentType,
-      "content-length": String(body.length),
+  const webRequest = new Request(
+    "http://localhost/v1/slice",
+    {
+      method: "POST",
+      headers: {
+        "content-type": contentType,
+        "content-length": String(body.length),
+      },
+      body,
     },
-    body,
-  });
+  );
 
   try {
     return await webRequest.formData();
@@ -122,7 +154,10 @@ async function parseMultipartFormData(request) {
   }
 }
 
-async function handleHealth(response, resolveSlicerVersion) {
+async function handleHealth(
+  response,
+  resolveSlicerVersion,
+) {
   try {
     const slicerVersion = await resolveSlicerVersion();
 
@@ -137,7 +172,10 @@ async function handleHealth(response, resolveSlicerVersion) {
       profiles: ["biqu-b1-0.4"],
     });
   } catch (error) {
-    console.error("No se pudo consultar PrusaSlicer:", error);
+    console.error(
+      "No se pudo consultar PrusaSlicer:",
+      error,
+    );
 
     sendJson(response, 503, {
       status: "unavailable",
@@ -152,38 +190,63 @@ async function handleHealth(response, resolveSlicerVersion) {
   }
 }
 
-async function handleSliceValidation(request, response) {
+async function handleSlice(
+  request,
+  response,
+  sliceModel,
+) {
+  const requestId = randomUUID();
+
   try {
     const formData = await parseMultipartFormData(request);
-    const validatedRequest = validateSliceFormData(formData);
+    const validatedRequest =
+      validateSliceFormData(formData);
 
-    sendJson(response, 200, {
-      status: "validated",
-      requestId: crypto.randomUUID(),
-      file: {
-        name: validatedRequest.file.name,
-        sizeBytes: validatedRequest.file.size,
-      },
+    const result = await sliceModel({
+      file: validatedRequest.file,
       settings: validatedRequest.settings,
-      slicingStarted: false,
+      requestId,
     });
+
+    sendGcode(
+      response,
+      result,
+      requestId,
+      validatedRequest.settings,
+    );
   } catch (error) {
     if (error instanceof SliceRequestError) {
       sendJson(response, error.statusCode, {
         error: {
           code: error.code,
           message: error.message,
+          requestId,
         },
       });
       return;
     }
 
-    console.error("Error inesperado validando el laminado:", error);
+    if (error instanceof SlicingError) {
+      sendJson(response, error.statusCode, {
+        error: {
+          code: error.code,
+          message: error.message,
+          requestId,
+        },
+      });
+      return;
+    }
+
+    console.error(
+      "Error inesperado durante el laminado:",
+      error,
+    );
 
     sendJson(response, 500, {
       error: {
         code: "INTERNAL_ERROR",
         message: "Ocurrió un error inesperado.",
+        requestId,
       },
     });
   }
@@ -191,9 +254,13 @@ async function handleSliceValidation(request, response) {
 
 export function createSlicerServer({
   resolveSlicerVersion = getPrusaSlicerVersion,
+  sliceModel = sliceUploadedModel,
 } = {}) {
   return createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", "http://localhost");
+    const url = new URL(
+      request.url ?? "/",
+      "http://localhost",
+    );
 
     if (url.pathname === "/health") {
       if (request.method !== "GET") {
@@ -210,7 +277,10 @@ export function createSlicerServer({
         return;
       }
 
-      await handleHealth(response, resolveSlicerVersion);
+      await handleHealth(
+        response,
+        resolveSlicerVersion,
+      );
       return;
     }
 
@@ -229,7 +299,11 @@ export function createSlicerServer({
         return;
       }
 
-      await handleSliceValidation(request, response);
+      await handleSlice(
+        request,
+        response,
+        sliceModel,
+      );
       return;
     }
 
@@ -249,13 +323,16 @@ function startServer() {
   const server = createSlicerServer();
 
   server.listen(port, host, () => {
-    console.log(`FORJA Slicer escuchando en http://${host}:${port}`);
+    console.log(
+      `FORJA Slicer escuchando en http://${host}:${port}`,
+    );
   });
 }
 
 const isMainModule =
   process.argv[1] &&
-  import.meta.url === pathToFileURL(process.argv[1]).href;
+  import.meta.url ===
+    pathToFileURL(process.argv[1]).href;
 
 if (isMainModule) {
   startServer();
