@@ -1,0 +1,140 @@
+import assert from "node:assert/strict";
+import { once } from "node:events";
+import { test } from "node:test";
+
+import { createSlicerServer } from "../src/server.mjs";
+
+async function startTestServer() {
+  const server = createSlicerServer({
+    resolveSlicerVersion: async () => "PrusaSlicer-2.9.2",
+  });
+
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+
+  const address = server.address();
+
+  if (!address || typeof address === "string") {
+    throw new Error("No se pudo obtener el puerto del servidor.");
+  }
+
+  return {
+    server,
+    baseUrl: `http://127.0.0.1:${address.port}`,
+  };
+}
+
+function createValidFormData() {
+  const formData = new FormData();
+
+  formData.set(
+    "file",
+    new File(["solid test"], "pieza.stl", {
+      type: "model/stl",
+    }),
+  );
+
+  formData.set("printerProfileId", "biqu-b1-0.4");
+  formData.set("layerHeightMm", "0.2");
+  formData.set("infillPercent", "20");
+  formData.set("supports", "false");
+  formData.set("material", "pla");
+
+  return formData;
+}
+
+test("POST /v1/slice acepta una solicitud válida", async (t) => {
+  const { server, baseUrl } = await startTestServer();
+
+  t.after(() => server.close());
+
+  const response = await fetch(`${baseUrl}/v1/slice`, {
+    method: "POST",
+    body: createValidFormData(),
+  });
+
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.status, "validated");
+  assert.equal(typeof body.requestId, "string");
+  assert.equal(body.file.name, "pieza.stl");
+  assert.equal(body.settings.printerProfileId, "biqu-b1-0.4");
+  assert.equal(body.settings.layerHeightMm, 0.2);
+  assert.equal(body.settings.infillPercent, 20);
+  assert.equal(body.settings.supports, false);
+  assert.equal(body.settings.material, "pla");
+  assert.equal(body.slicingStarted, false);
+});
+
+test("POST /v1/slice rechaza solicitudes sin archivo", async (t) => {
+  const { server, baseUrl } = await startTestServer();
+  const formData = createValidFormData();
+
+  t.after(() => server.close());
+
+  formData.delete("file");
+
+  const response = await fetch(`${baseUrl}/v1/slice`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, "INVALID_FILE");
+});
+
+test("POST /v1/slice rechaza materiales inválidos", async (t) => {
+  const { server, baseUrl } = await startTestServer();
+  const formData = createValidFormData();
+
+  t.after(() => server.close());
+
+  formData.set("material", "abs");
+
+  const response = await fetch(`${baseUrl}/v1/slice`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.error.code, "INVALID_MATERIAL");
+});
+
+test("POST /v1/slice exige multipart/form-data", async (t) => {
+  const { server, baseUrl } = await startTestServer();
+
+  t.after(() => server.close());
+
+  const response = await fetch(`${baseUrl}/v1/slice`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      printerProfileId: "biqu-b1-0.4",
+    }),
+  });
+
+  const body = await response.json();
+
+  assert.equal(response.status, 415);
+  assert.equal(body.error.code, "UNSUPPORTED_MEDIA_TYPE");
+});
+
+test("GET /v1/slice devuelve 405", async (t) => {
+  const { server, baseUrl } = await startTestServer();
+
+  t.after(() => server.close());
+
+  const response = await fetch(`${baseUrl}/v1/slice`);
+  const body = await response.json();
+
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.get("allow"), "POST");
+  assert.equal(body.error, "Método no permitido.");
+});
