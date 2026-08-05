@@ -9,8 +9,18 @@ import {
   SlicingError,
 } from "../src/prusa-runner.mjs";
 
+const validSettings = {
+  printerProfileId: "biqu-b1-0.4",
+  layerHeightMm: 0.2,
+  infillPercent: 20,
+  supports: false,
+  material: "pla",
+};
+
 async function createTempWorkspace(t) {
-  const directory = await mkdtemp(join(tmpdir(), "forja-runner-test-"));
+  const directory = await mkdtemp(
+    join(tmpdir(), "forja-runner-test-"),
+  );
 
   t.after(async () => {
     await rm(directory, {
@@ -42,15 +52,21 @@ function createValidGcode() {
 
 test("ejecuta PrusaSlicer con argumentos estructurados", async (t) => {
   const workspace = await createTempWorkspace(t);
+
   let receivedArgs;
   let receivedTimeout;
 
   await writeFile(workspace.inputPath, "solid test");
-  await writeFile(workspace.profilePath, "printer_model = BIQU B1");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
 
   const result = await runPrusaSlicer({
     ...workspace,
+    settings: validSettings,
     timeoutMs: 5_000,
+
     execute: async (args, timeoutMs) => {
       receivedArgs = args;
       receivedTimeout = timeoutMs;
@@ -65,6 +81,19 @@ test("ejecuta PrusaSlicer con argumentos estructurados", async (t) => {
   assert.deepEqual(receivedArgs, [
     "--load",
     workspace.profilePath,
+    "--layer-height",
+    "0.2",
+    "--fill-density",
+    "20%",
+    "--no-support-material",
+    "--temperature",
+    "200",
+    "--first-layer-temperature",
+    "200",
+    "--bed-temperature",
+    "60",
+    "--first-layer-bed-temperature",
+    "60",
     "--export-gcode",
     "--output",
     workspace.outputPath,
@@ -76,15 +105,138 @@ test("ejecuta PrusaSlicer con argumentos estructurados", async (t) => {
   assert.ok(result.sizeBytes > 1024);
 });
 
-test("rechaza G-code demasiado pequeño", async (t) => {
+test("activa soportes cuando supports es true", async (t) => {
+  const workspace = await createTempWorkspace(t);
+
+  let receivedArgs;
+
+  await writeFile(workspace.inputPath, "solid test");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
+
+  await runPrusaSlicer({
+    ...workspace,
+    settings: {
+      ...validSettings,
+      supports: true,
+    },
+
+    execute: async (args) => {
+      receivedArgs = args;
+
+      await writeFile(
+        workspace.outputPath,
+        createValidGcode(),
+      );
+    },
+  });
+
+  assert.ok(receivedArgs.includes("--support-material"));
+  assert.equal(
+    receivedArgs.includes("--no-support-material"),
+    false,
+  );
+});
+
+test("aplica temperaturas de PETG", async (t) => {
+  const workspace = await createTempWorkspace(t);
+
+  let receivedArgs;
+
+  await writeFile(workspace.inputPath, "solid test");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
+
+  await runPrusaSlicer({
+    ...workspace,
+    settings: {
+      ...validSettings,
+      material: "petg",
+    },
+
+    execute: async (args) => {
+      receivedArgs = args;
+
+      await writeFile(
+        workspace.outputPath,
+        createValidGcode(),
+      );
+    },
+  });
+
+  const temperatureIndex =
+    receivedArgs.indexOf("--temperature");
+
+  const bedTemperatureIndex =
+    receivedArgs.indexOf("--bed-temperature");
+
+  assert.equal(
+    receivedArgs[temperatureIndex + 1],
+    "235",
+  );
+
+  assert.equal(
+    receivedArgs[bedTemperatureIndex + 1],
+    "75",
+  );
+});
+
+test("rechaza materiales sin configuración", async (t) => {
   const workspace = await createTempWorkspace(t);
 
   await writeFile(workspace.inputPath, "solid test");
-  await writeFile(workspace.profilePath, "printer_model = BIQU B1");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
 
   await assert.rejects(
     runPrusaSlicer({
       ...workspace,
+      settings: {
+        ...validSettings,
+        material: "abs",
+      },
+
+      execute: async () => {
+        throw new Error(
+          "El proceso no debería ejecutarse.",
+        );
+      },
+    }),
+
+    (error) => {
+      assert.ok(error instanceof SlicingError);
+      assert.equal(error.code, "SLICING_FAILED");
+
+      assert.match(
+        error.message,
+        /configuración de temperatura/,
+      );
+
+      return true;
+    },
+  );
+});
+
+test("rechaza G-code demasiado pequeño", async (t) => {
+  const workspace = await createTempWorkspace(t);
+
+  await writeFile(workspace.inputPath, "solid test");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
+
+  await assert.rejects(
+    runPrusaSlicer({
+      ...workspace,
+      settings: validSettings,
+
       execute: async () => {
         await writeFile(
           workspace.outputPath,
@@ -92,10 +244,16 @@ test("rechaza G-code demasiado pequeño", async (t) => {
         );
       },
     }),
+
     (error) => {
       assert.ok(error instanceof SlicingError);
       assert.equal(error.code, "SLICING_FAILED");
-      assert.match(error.message, /vacío o incompleto/);
+
+      assert.match(
+        error.message,
+        /vacío o incompleto/,
+      );
+
       return true;
     },
   );
@@ -105,22 +263,39 @@ test("rechaza contenido que no sea G-code válido", async (t) => {
   const workspace = await createTempWorkspace(t);
 
   await writeFile(workspace.inputPath, "solid test");
-  await writeFile(workspace.profilePath, "printer_model = BIQU B1");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
 
   await assert.rejects(
     runPrusaSlicer({
       ...workspace,
+      settings: validSettings,
+
       execute: async () => {
         await writeFile(
           workspace.outputPath,
-          `${"; generated by PrusaSlicer\n"}${"texto inválido\n".repeat(100)}`,
+          [
+            "; generated by PrusaSlicer",
+            ...Array.from(
+              { length: 150 },
+              () => "texto inválido",
+            ),
+          ].join("\n"),
         );
       },
     }),
+
     (error) => {
       assert.ok(error instanceof SlicingError);
       assert.equal(error.code, "SLICING_FAILED");
-      assert.match(error.message, /no contiene G-code válido/);
+
+      assert.match(
+        error.message,
+        /no contiene G-code válido/,
+      );
+
       return true;
     },
   );
@@ -130,19 +305,30 @@ test("convierte errores del proceso en SLICING_FAILED", async (t) => {
   const workspace = await createTempWorkspace(t);
 
   await writeFile(workspace.inputPath, "solid test");
-  await writeFile(workspace.profilePath, "printer_model = BIQU B1");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
 
   await assert.rejects(
     runPrusaSlicer({
       ...workspace,
+      settings: validSettings,
+
       execute: async () => {
         throw new Error("falló el proceso");
       },
     }),
+
     (error) => {
       assert.ok(error instanceof SlicingError);
       assert.equal(error.code, "SLICING_FAILED");
-      assert.match(error.message, /no pudo generar/);
+
+      assert.match(
+        error.message,
+        /no pudo generar/,
+      );
+
       return true;
     },
   );
@@ -152,37 +338,56 @@ test("informa timeout de laminado", async (t) => {
   const workspace = await createTempWorkspace(t);
 
   await writeFile(workspace.inputPath, "solid test");
-  await writeFile(workspace.profilePath, "printer_model = BIQU B1");
+  await writeFile(
+    workspace.profilePath,
+    "printer_model = BIQU B1",
+  );
 
   await assert.rejects(
     runPrusaSlicer({
       ...workspace,
+      settings: validSettings,
+
       execute: async () => {
         const error = new Error("timeout");
         error.code = "ETIMEDOUT";
+
         throw error;
       },
     }),
+
     (error) => {
       assert.ok(error instanceof SlicingError);
       assert.equal(error.code, "SLICING_FAILED");
-      assert.match(error.message, /120 segundos/);
+
+      assert.match(
+        error.message,
+        /120 segundos/,
+      );
+
       return true;
     },
   );
 });
 
-test("rechaza rutas faltantes", async () => {
+test("rechaza datos o rutas faltantes", async () => {
   await assert.rejects(
     runPrusaSlicer({
       inputPath: "",
       outputPath: "",
       profilePath: "",
+      settings: undefined,
     }),
+
     (error) => {
       assert.ok(error instanceof SlicingError);
       assert.equal(error.code, "SLICING_FAILED");
-      assert.match(error.message, /Faltan rutas/);
+
+      assert.match(
+        error.message,
+        /Faltan datos/,
+      );
+
       return true;
     },
   );
