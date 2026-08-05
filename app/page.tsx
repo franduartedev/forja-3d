@@ -1459,6 +1459,7 @@ export default function Home() {
   const [autoSaveState, setAutoSaveState] = useState<"waiting" | "saving" | "saved">("waiting");
   const [feedbackText, setFeedbackText] = useState("");
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [slicing, setSlicing] = useState(false);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const pendingDraftRef = useRef<StoredProject | null>(null);
   const modalOpen = showTutorial || showLibrary || showDesignGallery || showFeedback;
@@ -2769,6 +2770,74 @@ export default function Home() {
     } finally {
       geometries.forEach((geometry) => geometry.dispose());
       setExporting(null);
+    }
+  };
+
+  const sliceCurrentModel = async (settings: {
+    layerHeightMm: 0.12 | 0.2 | 0.28;
+    infillPercent: number;
+    supports: boolean;
+    material: "pla" | "pla-plus" | "petg";
+  }) => {
+    if (!canExport || slicing) return;
+
+    setSlicing(true);
+    setSavedMessage("");
+
+    let geometries: ThreeTypes.BufferGeometry[] = [];
+
+    try {
+      const [
+        { createModelGeometries },
+        { createStlFile },
+        { sliceModel, downloadGcode },
+      ] = await Promise.all([
+        import("../lib/model-geometry"),
+        import("../lib/create-stl-file"),
+        import("../lib/slicer/client"),
+      ]);
+
+      geometries = createModelGeometries(
+        templateId,
+        parameters,
+        options,
+        true,
+        true,
+      );
+
+      const file = await createStlFile(
+        geometries,
+        exportName,
+      );
+
+      const result = await sliceModel({
+        file,
+        printerProfileId: "biqu-b1-0.4",
+        layerHeightMm: settings.layerHeightMm,
+        infillPercent: settings.infillPercent,
+        supports: settings.supports,
+        material: settings.material,
+      });
+
+      downloadGcode(result);
+
+      setSavedMessage(
+        result.requestId
+          ? `G-code generado correctamente · ${result.requestId}`
+          : "G-code generado correctamente",
+      );
+    } catch (error) {
+      setSavedMessage(
+        error instanceof Error
+          ? error.message
+          : "No pudimos generar el G-code",
+      );
+    } finally {
+      geometries.forEach((geometry) => {
+        geometry.dispose();
+      });
+
+      setSlicing(false);
     }
   };
 
