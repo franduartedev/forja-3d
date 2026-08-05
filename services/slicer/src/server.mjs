@@ -10,9 +10,13 @@ const SERVICE_VERSION = "0.1.0";
 const DEFAULT_PORT = 3001;
 
 export async function getPrusaSlicerVersion() {
-  const { stdout, stderr } = await execFileAsync("prusa-slicer", ["--version"], {
-    timeout: 10_000,
-  });
+  const { stdout, stderr } = await execFileAsync(
+    "prusa-slicer",
+    ["--help"],
+    {
+      timeout: 10_000,
+    },
+  );
 
   const output = `${stdout}\n${stderr}`.trim();
 
@@ -20,7 +24,16 @@ export async function getPrusaSlicerVersion() {
     throw new Error("PrusaSlicer no informó su versión.");
   }
 
-  return output.split("\n")[0];
+  const firstLine = output
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.startsWith("PrusaSlicer-"));
+
+  if (!firstLine) {
+    throw new Error("No se pudo identificar la versión de PrusaSlicer.");
+  }
+
+  return firstLine;
 }
 
 function sendJson(response, statusCode, body) {
@@ -85,15 +98,16 @@ export function createSlicerServer({
 }
 
 function startServer() {
-  const port = Number.parseInt(process.env.PORT ?? `${DEFAULT_PORT}`, 10);
-  const host = process.env.HOST ?? "0.0.0.0";
+  const port = Number.parseInt(
+    process.env.PORT ?? `${DEFAULT_PORT}`,
+    10,
+  );
 
+  const host = process.env.HOST ?? "0.0.0.0";
   const server = createSlicerServer();
 
   server.listen(port, host, () => {
-    console.log(
-      `FORJA Slicer escuchando en http://${host}:${port}`,
-    );
+    console.log(`FORJA Slicer escuchando en http://${host}:${port}`);
   });
 }
 

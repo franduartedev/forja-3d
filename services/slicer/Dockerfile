@@ -6,7 +6,9 @@ ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     HOME=/tmp/forja-slicer-home \
     XDG_CONFIG_HOME=/tmp/forja-slicer-home/.config \
-    XDG_CACHE_HOME=/tmp/forja-slicer-home/.cache
+    XDG_CACHE_HOME=/tmp/forja-slicer-home/.cache \
+    HOST=0.0.0.0 \
+    PORT=3001
 
 RUN apt-get update \
     && apt-get install --yes --no-install-recommends \
@@ -20,6 +22,7 @@ RUN apt-get update \
     && command -v prusa-slicer >/dev/null
 
 COPY --chown=node:node services/slicer/smoke-test/ /opt/forja-slicer/smoke-test/
+COPY --chown=node:node services/slicer/src/ /opt/forja-slicer/src/
 
 WORKDIR /work
 
@@ -42,5 +45,6 @@ RUN timeout --signal=TERM --kill-after=5s 120s \
     && grep --extended-regexp --quiet '^G1.*[[:space:]]E[-+]?[0-9]' /tmp/forja-smoke-test.gcode \
     && rm /tmp/forja-smoke-test.gcode
 
-# Temporal hasta incorporar el servidor HTTP.
-CMD ["prusa-slicer", "--help"]
+EXPOSE 3001
+
+CMD ["node", "/opt/forja-slicer/src/server.mjs"]
