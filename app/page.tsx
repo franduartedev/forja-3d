@@ -1,5 +1,7 @@
 "use client";
 
+import SlicerPanel from "./components/SlicerPanel";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   DragEvent as ReactDragEvent,
@@ -5121,6 +5123,12 @@ export default function Home() {
             </label>
             <p>Estimación para {activeMaterial.label}; Cura u Orca darán el cálculo final.</p>
           </div>
+
+          <SlicerPanel
+            disabled={!canExport}
+            slicing={slicing}
+            onSlice={sliceCurrentModel}
+          />
 
           <div className="export-zone">
             <span className="eyebrow">Exportar modelo</span>
