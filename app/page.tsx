@@ -2721,11 +2721,12 @@ export default function Home() {
     setExporting(format);
     setSavedMessage("");
     let geometries: ThreeTypes.BufferGeometry[] = [];
+
     try {
-      const [THREE, { createModelGeometries }] = await Promise.all([
-        import("three"),
-        import("../lib/model-geometry"),
-      ]);
+      const { createModelGeometries } = await import(
+        "../lib/model-geometry"
+      );
+
       geometries = createModelGeometries(
         templateId,
         parameters,
@@ -2735,30 +2736,36 @@ export default function Home() {
       );
 
       if (format === "stl") {
-        const { STLExporter } = await import(
-          "three/examples/jsm/exporters/STLExporter.js"
+        const { createStlFile } = await import(
+          "../lib/create-stl-file"
         );
-        const group = new THREE.Group();
-        geometries.forEach((geometry) => group.add(new THREE.Mesh(geometry)));
-        group.name = exportName;
-        const data = new STLExporter().parse(group, { binary: true });
-        downloadBlob(
-          new Blob([data as BlobPart], { type: "model/stl" }),
-          `${exportName}.stl`,
+
+        const file = await createStlFile(
+          geometries,
+          exportName,
         );
+
+        downloadBlob(file, file.name);
       } else {
         const { create3mfBlob, createStepBlob } = await import(
           "../lib/model-exporters"
         );
+
         const blob =
           format === "3mf"
             ? await create3mfBlob(geometries, exportName)
             : createStepBlob(geometries, exportName);
+
         downloadBlob(blob, `${exportName}.${format}`);
       }
-      setSavedMessage(`${format.toUpperCase()} generado correctamente`);
+
+      setSavedMessage(
+        `${format.toUpperCase()} generado correctamente`,
+      );
     } catch {
-      setSavedMessage(`No pudimos generar el archivo ${format.toUpperCase()}`);
+      setSavedMessage(
+        `No pudimos generar el archivo ${format.toUpperCase()}`,
+      );
     } finally {
       geometries.forEach((geometry) => geometry.dispose());
       setExporting(null);
