@@ -2,6 +2,8 @@ import { execFile } from "node:child_process";
 import { access, readFile, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 
+import { parseGcodeMetadata } from "./gcode-metadata.mjs";
+
 const execFileAsync = promisify(execFile);
 
 export const DEFAULT_SLICING_TIMEOUT_MS = 120_000;
@@ -87,7 +89,7 @@ function buildSlicerArgs({
   ];
 }
 
-async function validateGcodeFile(outputPath) {
+async function validateGcodeFile(outputPath, material) {
   await access(outputPath);
 
   const fileStats = await stat(outputPath);
@@ -118,6 +120,7 @@ async function validateGcodeFile(outputPath) {
   return {
     outputPath,
     sizeBytes: fileStats.size,
+    metadata: parseGcodeMetadata(gcode, material),
   };
 }
 
@@ -145,7 +148,10 @@ export async function runPrusaSlicer({
 
   try {
     await execute(args, timeoutMs);
-    return await validateGcodeFile(outputPath);
+    return await validateGcodeFile(
+      outputPath,
+      settings.material,
+    );
   } catch (error) {
     if (error instanceof SlicingError) {
       throw error;

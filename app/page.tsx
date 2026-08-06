@@ -2,6 +2,8 @@
 
 import SlicerPanel from "./components/SlicerPanel";
 
+import type { SliceResult } from "../lib/slicer/client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   DragEvent as ReactDragEvent,
@@ -1462,6 +1464,8 @@ export default function Home() {
   const [feedbackText, setFeedbackText] = useState("");
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const [slicing, setSlicing] = useState(false);
+  const [sliceResult, setSliceResult] =
+    useState<SliceResult | null>(null);
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const pendingDraftRef = useRef<StoredProject | null>(null);
   const modalOpen = showTutorial || showLibrary || showDesignGallery || showFeedback;
@@ -2784,6 +2788,7 @@ export default function Home() {
     if (!canExport || slicing) return;
 
     setSlicing(true);
+    setSliceResult(null);
     setSavedMessage("");
 
     let geometries: ThreeTypes.BufferGeometry[] = [];
@@ -2821,6 +2826,7 @@ export default function Home() {
         material: settings.material,
       });
 
+      setSliceResult(result);
       downloadGcode(result);
 
       setSavedMessage(
@@ -5127,6 +5133,7 @@ export default function Home() {
           <SlicerPanel
             disabled={!canExport}
             slicing={slicing}
+            result={sliceResult}
             onSlice={sliceCurrentModel}
           />
 

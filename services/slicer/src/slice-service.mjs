@@ -54,6 +54,7 @@ export async function sliceUploadedModel({
       gcode,
       fileName: `${safeBaseName}.gcode`,
       sizeBytes: result.sizeBytes,
+      metadata: result.metadata,
     };
   } finally {
     await rm(workspace, {

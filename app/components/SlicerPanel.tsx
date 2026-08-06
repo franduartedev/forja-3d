@@ -5,6 +5,7 @@ import { useState } from "react";
 import type {
   SliceLayerHeight,
   SliceMaterial,
+  SliceResult,
 } from "../../lib/slicer/client";
 
 type SlicerSettings = {
@@ -17,12 +18,49 @@ type SlicerSettings = {
 type SlicerPanelProps = {
   disabled?: boolean;
   slicing?: boolean;
+  result?: SliceResult | null;
   onSlice: (settings: SlicerSettings) => Promise<void>;
 };
+
+function formatPrintTime(seconds: number | null) {
+  if (seconds === null) {
+    return "No disponible";
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = Math.round(seconds % 60);
+
+  const parts = [];
+
+  if (hours > 0) {
+    parts.push(`${hours} h`);
+  }
+
+  if (minutes > 0) {
+    parts.push(`${minutes} min`);
+  }
+
+  if (hours === 0 && remainingSeconds > 0) {
+    parts.push(`${remainingSeconds} s`);
+  }
+
+  return parts.join(" ") || "Menos de un minuto";
+}
+
+function formatNumber(
+  value: number | null,
+  digits = 2,
+) {
+  return value === null
+    ? "No disponible"
+    : value.toFixed(digits);
+}
 
 export default function SlicerPanel({
   disabled = false,
   slicing = false,
+  result = null,
   onSlice,
 }: SlicerPanelProps) {
   const [layerHeightMm, setLayerHeightMm] =
@@ -180,6 +218,73 @@ export default function SlicerPanel({
           ? "Laminando modelo…"
           : "Generar y descargar G-code"}
       </button>
+
+      {result ? (
+        <section
+          className="slicer-panel__result"
+          aria-live="polite"
+        >
+          <div className="slicer-panel__result-header">
+            <div>
+              <span className="eyebrow">
+                Laminado completado
+              </span>
+
+              <h4>{result.fileName}</h4>
+            </div>
+
+            <strong>Listo para imprimir</strong>
+          </div>
+
+          <dl className="slicer-panel__metrics">
+            <div>
+              <dt>Tiempo estimado</dt>
+              <dd>
+                {formatPrintTime(
+                  result.printTimeSeconds,
+                )}
+              </dd>
+            </div>
+
+            <div>
+              <dt>Filamento</dt>
+              <dd>
+                {formatNumber(
+                  result.filamentMeters,
+                )}{" "}
+                m
+              </dd>
+            </div>
+
+            <div>
+              <dt>Peso estimado</dt>
+              <dd>
+                {formatNumber(
+                  result.filamentGrams,
+                  1,
+                )}{" "}
+                g
+              </dd>
+            </div>
+
+            <div>
+              <dt>Volumen</dt>
+              <dd>
+                {formatNumber(
+                  result.filamentVolumeCm3,
+                )}{" "}
+                cm³
+              </dd>
+            </div>
+          </dl>
+
+          {result.requestId ? (
+            <small>
+              Solicitud: {result.requestId}
+            </small>
+          ) : null}
+        </section>
+      ) : null}
 
       {!disabled ? null : (
         <small className="slicer-panel__disabled">

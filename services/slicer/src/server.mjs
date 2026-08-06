@@ -32,6 +32,10 @@ const CORS_HEADERS = {
     "X-Infill-Percent",
     "X-Supports",
     "X-Material",
+    "X-Print-Time-Seconds",
+    "X-Filament-Meters",
+    "X-Filament-Grams",
+    "X-Filament-Volume-Cm3",
   ].join(", "),
 };
 
@@ -76,6 +80,8 @@ function sendJson(response, statusCode, body, extraHeaders = {}) {
 }
 
 function sendGcode(response, result, requestId, settings) {
+  const metadata = result.metadata ?? {};
+
   response.writeHead(200, {
     ...CORS_HEADERS,
     "Content-Type": "text/x-gcode",
@@ -89,6 +95,18 @@ function sendGcode(response, result, requestId, settings) {
     "X-Infill-Percent": String(settings.infillPercent),
     "X-Supports": String(settings.supports),
     "X-Material": settings.material,
+    "X-Print-Time-Seconds": String(
+      metadata.estimatedPrintTimeSeconds ?? "",
+    ),
+    "X-Filament-Meters": String(
+      metadata.filamentMeters ?? "",
+    ),
+    "X-Filament-Grams": String(
+      metadata.filamentGrams ?? "",
+    ),
+    "X-Filament-Volume-Cm3": String(
+      metadata.filamentVolumeCm3 ?? "",
+    ),
   });
 
   response.end(result.gcode);

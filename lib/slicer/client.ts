@@ -21,6 +21,10 @@ export type SliceResult = {
   gcode: Blob;
   fileName: string;
   requestId: string | null;
+  printTimeSeconds: number | null;
+  filamentMeters: number | null;
+  filamentGrams: number | null;
+  filamentVolumeCm3: number | null;
 };
 
 type SliceErrorBody = {
@@ -53,6 +57,21 @@ function getDownloadFileName(
   );
 
   return match?.[1] ?? "forja-modelo.gcode";
+}
+
+function getNumberHeader(
+  response: Response,
+  headerName: string,
+) {
+  const value = response.headers.get(headerName);
+
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value);
+
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 async function readSliceError(
@@ -130,6 +149,22 @@ export async function sliceModel({
     ),
     requestId: response.headers.get(
       "x-request-id",
+    ),
+    printTimeSeconds: getNumberHeader(
+      response,
+      "x-print-time-seconds",
+    ),
+    filamentMeters: getNumberHeader(
+      response,
+      "x-filament-meters",
+    ),
+    filamentGrams: getNumberHeader(
+      response,
+      "x-filament-grams",
+    ),
+    filamentVolumeCm3: getNumberHeader(
+      response,
+      "x-filament-volume-cm3",
     ),
   };
 }
