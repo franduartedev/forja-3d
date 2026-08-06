@@ -2878,31 +2878,106 @@ export default function Home() {
             {autoSaveState === "saving" ? "Guardando…" : autoSaveState === "saved" ? "Guardado automático" : "Autoguardado"}
           </span>
           <button
-            className="button ghost tutorial-trigger"
-            onClick={openTutorial}
-            aria-label="Abrir tutorial de FORJA"
+            className="button ghost save-trigger"
+            onClick={saveProject}
           >
-            <i>{tutorialCompleted ? "✓" : "?"}</i>
-            <span>Aprender</span>
+            Guardar
           </button>
-          <button className="button ghost library-trigger" onClick={() => setShowLibrary(true)}>
-            Mis proyectos
-            {savedProjects.length > 0 && (
-              <span className="project-count">{savedProjects.length}</span>
-            )}
-          </button>
-          <button
-            className="button ghost designs-trigger"
-            onClick={() => setShowDesignGallery(true)}
-          >
-            <span aria-hidden="true">◆</span>
-            Diseños
-          </button>
-          <button className="button ghost save-trigger" onClick={saveProject}>Guardar</button>
-          <button className="button ghost feedback-trigger" onClick={() => setShowFeedback(true)}>
-            Reportar
-          </button>
-          {templateId !== "free" && (
+
+          <details className="project-actions-menu">
+            <summary
+              aria-label="Más acciones del proyecto"
+              title="Más acciones"
+            >
+              <span className="project-actions-label">
+                Más
+              </span>
+
+              <span
+                className="project-actions-chevron"
+                aria-hidden="true"
+              >
+                ⌄
+              </span>
+            </summary>
+
+            <div className="project-actions-popover">
+              <button
+                type="button"
+                onClick={(event) => {
+                  openTutorial();
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                <i aria-hidden="true">
+                  {tutorialCompleted ? "✓" : "?"}
+                </i>
+
+                <span>
+                  <strong>Aprender</strong>
+                  <small>Volver a ver el tutorial</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  setShowLibrary(true);
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                <i aria-hidden="true">▣</i>
+
+                <span>
+                  <strong>Mis proyectos</strong>
+                  <small>
+                    {savedProjects.length > 0
+                      ? `${savedProjects.length} guardados`
+                      : "Abrir biblioteca personal"}
+                  </small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  setShowDesignGallery(true);
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                <i aria-hidden="true">◆</i>
+
+                <span>
+                  <strong>Diseños</strong>
+                  <small>Explorar modelos de la biblioteca</small>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={(event) => {
+                  setShowFeedback(true);
+                  event.currentTarget
+                    .closest("details")
+                    ?.removeAttribute("open");
+                }}
+              >
+                <i aria-hidden="true">!</i>
+
+                <span>
+                  <strong>Reportar</strong>
+                  <small>Contarnos un problema o sugerencia</small>
+                </span>
+              </button>
+            </div>
+          </details>
+          {canExport && (
             <button
               className={`button review-trigger ${showReview ? "active" : ""}`}
               onClick={() => setShowReview((current) => !current)}
@@ -3384,7 +3459,7 @@ export default function Home() {
         templateId === "free" ? "free-workspace" : showReview ? "review-open" : "review-hidden"
       }`} aria-hidden={modalOpen || undefined} inert={modalOpen ? true : undefined}>
         <aside className={`left-panel ${templateId === "free" ? "free-left-panel" : ""}`}>
-          {templateId === "free" ? (
+          {templateId === "free" && !showReview ? (
             <div className="free-project-bar">
               <div className="free-project-title">
                 <span>EDITOR LIBRE</span>
@@ -4606,10 +4681,12 @@ export default function Home() {
         <aside
           id="manufacturing-review"
           className={`right-panel ${
-            templateId === "free" ? "free-inspector-panel" : ""
+            templateId === "free" && !showReview
+              ? "free-inspector-panel"
+              : ""
           }`}
         >
-          {templateId === "free" ? (
+          {templateId === "free" && !showReview ? (
             <>
               <div className="panel-heading compact-heading inspector-heading">
                 <span className="eyebrow">Inspector</span>

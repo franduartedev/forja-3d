@@ -15,11 +15,67 @@ type SlicerSettings = {
   material: SliceMaterial;
 };
 
+type SlicePreset = "draft" | "standard" | "quality" | "custom";
+
 type SlicerPanelProps = {
   disabled?: boolean;
   slicing?: boolean;
   result?: SliceResult | null;
   onSlice: (settings: SlicerSettings) => Promise<void>;
+};
+
+const MATERIAL_TEMPERATURES: Record<
+  SliceMaterial,
+  {
+    nozzle: number;
+    bed: number;
+  }
+> = {
+  pla: {
+    nozzle: 200,
+    bed: 60,
+  },
+  "pla-plus": {
+    nozzle: 210,
+    bed: 60,
+  },
+  petg: {
+    nozzle: 235,
+    bed: 75,
+  },
+};
+
+const SLICE_PRESETS: Record<
+  Exclude<SlicePreset, "custom">,
+  {
+    label: string;
+    description: string;
+    layerHeightMm: SliceLayerHeight;
+    infillPercent: number;
+    supports: boolean;
+  }
+> = {
+  draft: {
+    label: "Borrador",
+    description: "Más rápido",
+    layerHeightMm: 0.28,
+    infillPercent: 15,
+    supports: false,
+  },
+  standard: {
+    label: "Estándar",
+    description: "Equilibrado",
+    layerHeightMm: 0.2,
+    infillPercent: 20,
+    supports: false,
+  },
+  quality: {
+    label: "Calidad",
+    description: "Más detalle",
+    layerHeightMm: 0.12,
+    infillPercent: 25,
+    supports: false,
+  },
 };
 
 function formatPrintTime(seconds: number | null) {
@@ -48,10 +104,7 @@ function formatPrintTime(seconds: number | null) {
   return parts.join(" ") || "Menos de un minuto";
 }
 
-function formatNumber(
-  value: number | null,
-  digits = 2,
-) {
+function formatNumber(value: number | null, digits = 2) {
   return value === null
     ? "No disponible"
     : value.toFixed(digits);
@@ -63,6 +116,9 @@ export default function SlicerPanel({
   result = null,
   onSlice,
 }: SlicerPanelProps) {
+  const [preset, setPreset] =
+    useState<SlicePreset>("standard");
+
   const [layerHeightMm, setLayerHeightMm] =
     useState<SliceLayerHeight>(0.2);
 
@@ -74,6 +130,17 @@ export default function SlicerPanel({
 
   const [material, setMaterial] =
     useState<SliceMaterial>("pla");
+
+  const applyPreset = (
+    presetId: Exclude<SlicePreset, "custom">,
+  ) => {
+    const selectedPreset = SLICE_PRESETS[presetId];
+
+    setPreset(presetId);
+    setLayerHeightMm(selectedPreset.layerHeightMm);
+    setInfillPercent(selectedPreset.infillPercent);
+    setSupports(selectedPreset.supports);
+  };
 
   const handleSubmit = async (
     event: React.FormEvent<HTMLFormElement>,
@@ -114,6 +181,50 @@ export default function SlicerPanel({
         </span>
       </div>
 
+      <section className="slicer-panel__preset-section">
+        <div className="slicer-panel__section-heading">
+          <strong>Perfil de impresión</strong>
+
+          <small>
+            {preset === "custom"
+              ? "Configuración personalizada"
+              : "Elegí según velocidad y detalle"}
+          </small>
+        </div>
+
+        <div
+          className="slicer-panel__presets"
+          aria-label="Perfiles de laminado"
+        >
+          {(
+            Object.entries(SLICE_PRESETS) as Array<
+              [
+                Exclude<SlicePreset, "custom">,
+                (typeof SLICE_PRESETS)[Exclude<
+                  SlicePreset,
+                  "custom"
+                >],
+              ]
+            >
+          ).map(([presetId, presetData]) => (
+            <button
+              key={presetId}
+              type="button"
+              className={
+                preset === presetId ? "active" : ""
+              }
+              disabled={disabled || slicing}
+              onClick={() => {
+                applyPreset(presetId);
+              }}
+            >
+              <strong>{presetData.label}</strong>
+              <small>{presetData.description}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
       <div className="slicer-panel__grid">
         <label>
           <span>Material</span>
@@ -128,15 +239,19 @@ export default function SlicerPanel({
             }}
           >
             <option value="pla">PLA</option>
-            <option value="pla-plus">
-              PLA+
-            </option>
+            <option value="pla-plus">PLA+</option>
             <option value="petg">PETG</option>
           </select>
+
+          <small className="slicer-panel__material-info">
+            Boquilla {MATERIAL_TEMPERATURES[material].nozzle} °C
+            <span aria-hidden="true"> · </span>
+            Cama {MATERIAL_TEMPERATURES[material].bed} °C
+          </small>
         </label>
 
         <label>
-          <span>Calidad</span>
+          <span>Altura de capa</span>
 
           <select
             value={layerHeightMm}
@@ -147,6 +262,7 @@ export default function SlicerPanel({
                   event.target.value,
                 ) as SliceLayerHeight,
               );
+              setPreset("custom");
             }}
           >
             <option value={0.28}>
@@ -178,12 +294,11 @@ export default function SlicerPanel({
                 setInfillPercent(
                   Number(event.target.value),
                 );
+                setPreset("custom");
               }}
             />
 
-            <strong>
-              {infillPercent}%
-            </strong>
+            <strong>{infillPercent}%</strong>
           </div>
         </label>
 
@@ -193,9 +308,8 @@ export default function SlicerPanel({
             checked={supports}
             disabled={disabled || slicing}
             onChange={(event) => {
-              setSupports(
-                event.target.checked,
-              );
+              setSupports(event.target.checked);
+              setPreset("custom");
             }}
           />
 
