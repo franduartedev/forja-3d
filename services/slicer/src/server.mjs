@@ -20,6 +20,21 @@ const SERVICE_VERSION = "0.1.0";
 const DEFAULT_PORT = 3001;
 const MAX_MULTIPART_BYTES = MAX_STL_BYTES + 1024 * 1024;
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Expose-Headers": [
+    "Content-Disposition",
+    "X-Request-Id",
+    "X-Printer-Profile-Id",
+    "X-Layer-Height-Mm",
+    "X-Infill-Percent",
+    "X-Supports",
+    "X-Material",
+  ].join(", "),
+};
+
 export async function getPrusaSlicerVersion() {
   const { stdout, stderr } = await execFileAsync(
     "prusa-slicer",
@@ -51,6 +66,7 @@ export async function getPrusaSlicerVersion() {
 
 function sendJson(response, statusCode, body, extraHeaders = {}) {
   response.writeHead(statusCode, {
+    ...CORS_HEADERS,
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
     ...extraHeaders,
@@ -61,6 +77,7 @@ function sendJson(response, statusCode, body, extraHeaders = {}) {
 
 function sendGcode(response, result, requestId, settings) {
   response.writeHead(200, {
+    ...CORS_HEADERS,
     "Content-Type": "text/x-gcode",
     "Content-Disposition":
       `attachment; filename="${result.fileName}"`,
@@ -261,6 +278,15 @@ export function createSlicerServer({
       request.url ?? "/",
       "http://localhost",
     );
+
+    if (request.method === "OPTIONS") {
+      response.writeHead(204, {
+        ...CORS_HEADERS,
+        "Cache-Control": "no-store",
+      });
+      response.end();
+      return;
+    }
 
     if (url.pathname === "/health") {
       if (request.method !== "GET") {
