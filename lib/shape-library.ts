@@ -831,7 +831,7 @@ export function createStarterDesign(
         x, z: z - 22, width: 54, depth: 42, height: 5,
       }),
       make("cube", `Brazo soporte auricular ${suffix}`, {
-        x, y: 5, z: z + 18, width: 18, depth: 64, height: 8,
+        x, y: 4.5, z: z + 18, width: 18, depth: 64, height: 8.5,
       }),
       make("cube", `Tope soporte auricular ${suffix}`, {
         x, y: 5, z: z + 48, width: 28, depth: 7, height: 22,
