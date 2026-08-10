@@ -5,10 +5,10 @@ import { STLExporter } from "three/examples/jsm/exporters/STLExporter.js";
 import { createModelGeometries } from "../lib/model-geometry";
 import { TEMPLATES } from "../lib/models";
 
-test("STL export contains a complete finite binary mesh", () => {
+test("STL export contains a complete finite binary mesh", async () => {
   const template = TEMPLATES.find((item) => item.id === "plate");
   assert.ok(template);
-  const geometries = createModelGeometries(
+  const geometries = await createModelGeometries(
     "plate",
     template.defaults,
     undefined,

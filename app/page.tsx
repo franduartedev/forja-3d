@@ -1183,7 +1183,7 @@ function ModelPreview({
 
     const updateGeometry = async () => {
       const { createModelGeometries } = await import("../lib/model-geometry");
-      const geometries = createModelGeometries(
+      const geometries = await createModelGeometries(
         templateId,
         parameters,
         options,
@@ -2734,7 +2734,7 @@ export default function Home() {
         "../lib/model-geometry"
       );
 
-      geometries = createModelGeometries(
+      geometries = await createModelGeometries(
         templateId,
         parameters,
         options,
@@ -2769,9 +2769,11 @@ export default function Home() {
       setSavedMessage(
         `${format.toUpperCase()} generado correctamente`,
       );
-    } catch {
+    } catch (error) {
       setSavedMessage(
-        `No pudimos generar el archivo ${format.toUpperCase()}`,
+        error instanceof Error
+          ? error.message
+          : `No pudimos generar el archivo ${format.toUpperCase()}`,
       );
     } finally {
       geometries.forEach((geometry) => geometry.dispose());
@@ -2804,7 +2806,7 @@ export default function Home() {
         import("../lib/slicer/client"),
       ]);
 
-      geometries = createModelGeometries(
+      geometries = await createModelGeometries(
         templateId,
         parameters,
         options,

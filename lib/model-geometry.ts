@@ -4,11 +4,18 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
 import helvetikerFont from "three/examples/fonts/helvetiker_regular.typeface.json";
 import {
-  ADDITION,
   Brush,
   Evaluator,
   SUBTRACTION,
 } from "three-bvh-csg";
+import {
+  auditBufferGeometry,
+  assertExportableManifoldGeometry,
+  bufferGeometryToManifold,
+  manifoldToBufferGeometry,
+  subtractManifolds,
+  unionManifolds,
+} from "./experimental/manifold-geometry";
 import type {
   Cutout,
   CustomObject,
@@ -537,36 +544,89 @@ function createPreviewObjectGeometry(object: CustomObject) {
   return geometry;
 }
 
-function createFreeBooleanGeometry(objects: CustomObject[]) {
+function solidsExpectSingleComponent(geometries: THREE.BufferGeometry[]) {
+  if (geometries.length === 1) {
+    return auditBufferGeometry(geometries[0]).componentCount === 1;
+  }
+  const bounds = geometries.map((geometry) => {
+    geometry.computeBoundingBox();
+    return geometry.boundingBox?.clone() ?? new THREE.Box3();
+  });
+  const connected = new Set([0]);
+
+  for (let pass = 0; pass < bounds.length; pass += 1) {
+    bounds.forEach((candidate, candidateIndex) => {
+      if (connected.has(candidateIndex)) return;
+      const overlaps = [...connected].some((connectedIndex) => {
+        const current = bounds[connectedIndex];
+        return (
+          Math.min(candidate.max.x, current.max.x) -
+              Math.max(candidate.min.x, current.min.x) > 0.01 &&
+          Math.min(candidate.max.y, current.max.y) -
+              Math.max(candidate.min.y, current.min.y) > 0.01 &&
+          Math.min(candidate.max.z, current.max.z) -
+              Math.max(candidate.min.z, current.min.z) > 0.01
+        );
+      });
+      if (overlaps) connected.add(candidateIndex);
+    });
+  }
+  return connected.size === bounds.length;
+}
+
+async function createFreeBooleanGeometry(objects: CustomObject[]) {
   const solids = objects.filter((object) => object.operation !== "hole");
   if (!solids.length) return null;
   const holes = objects.filter((object) => object.operation === "hole");
-  const evaluator = new Evaluator();
-  evaluator.useGroups = false;
-  const resources: THREE.BufferGeometry[] = [];
+  const solidGeometries = solids.map(createObjectGeometry);
+  const holeGeometries = holes.map(createObjectGeometry);
+  const requireSingleComponent = solidsExpectSingleComponent(solidGeometries);
+  const manifoldInputs: Awaited<
+    ReturnType<typeof bufferGeometryToManifold>
+  >[] = [];
+  let unionResult: Awaited<ReturnType<typeof unionManifolds>> | null = null;
+  let finalResult: Awaited<ReturnType<typeof unionManifolds>> | null = null;
 
-  const brushFor = (object: CustomObject) => {
-    const geometry = createObjectGeometry(object);
-    resources.push(geometry);
-    const brush = new Brush(geometry);
-    brush.updateMatrixWorld();
-    return brush;
-  };
+  try {
+    for (let index = 0; index < solidGeometries.length; index += 1) {
+      manifoldInputs.push(
+        await bufferGeometryToManifold(
+          solidGeometries[index],
+          undefined,
+          `el sólido “${solids[index].name}”`,
+        ),
+      );
+    }
+    const solidCount = manifoldInputs.length;
+    for (let index = 0; index < holeGeometries.length; index += 1) {
+      manifoldInputs.push(
+        await bufferGeometryToManifold(
+          holeGeometries[index],
+          undefined,
+          `el recorte “${holes[index].name}”`,
+        ),
+      );
+    }
 
-  let result: Brush = brushFor(solids[0]);
-  solids.slice(1).forEach((object) => {
-    result = evaluator.evaluate(result, brushFor(object), ADDITION) as Brush;
-    resources.push(result.geometry);
-  });
-  holes.forEach((object) => {
-    result = evaluator.evaluate(result, brushFor(object), SUBTRACTION) as Brush;
-    resources.push(result.geometry);
-  });
-
-  const geometry = result.geometry.clone();
-  geometry.computeVertexNormals();
-  new Set(resources).forEach((resource) => resource.dispose());
-  return geometry;
+    unionResult = await unionManifolds(manifoldInputs.slice(0, solidCount));
+    finalResult = holes.length
+      ? await subtractManifolds(unionResult, manifoldInputs.slice(solidCount))
+      : unionResult;
+    const geometry = manifoldToBufferGeometry(finalResult);
+    try {
+      assertExportableManifoldGeometry(geometry, requireSingleComponent);
+      return geometry;
+    } catch (error) {
+      geometry.dispose();
+      throw error;
+    }
+  } finally {
+    manifoldInputs.forEach((manifold) => manifold.delete());
+    if (finalResult && finalResult !== unionResult) finalResult.delete();
+    unionResult?.delete();
+    solidGeometries.forEach((geometry) => geometry.dispose());
+    holeGeometries.forEach((geometry) => geometry.dispose());
+  }
 }
 
 function legacyHoles(templateId: TemplateId, params: ModelParameters): Cutout[] {
@@ -600,7 +660,7 @@ const DEFAULT_OPTIONS: Omit<ModelOptions, "holes" | "objects"> = {
   standoffHole: 3,
 };
 
-export function createModelGeometries(
+export async function createModelGeometries(
   templateId: TemplateId,
   params: ModelParameters,
   suppliedOptions?: Partial<ModelOptions>,
@@ -619,7 +679,7 @@ export function createModelGeometries(
     if (!finalizeFree) {
       return visibleObjects.map(createPreviewObjectGeometry);
     }
-    const geometry = createFreeBooleanGeometry(visibleObjects);
+    const geometry = await createFreeBooleanGeometry(visibleObjects);
     return geometry ? [geometry] : [];
   }
 

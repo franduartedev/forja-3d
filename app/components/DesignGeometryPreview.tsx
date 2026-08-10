@@ -45,7 +45,7 @@ export default function DesignGeometryPreview({
           { x: 0, z: 0 },
           (prefix) => `${prefix}-preview-${nextId += 1}`,
         );
-        const geometries = createModelGeometries(
+        const geometries = await createModelGeometries(
           "free",
           { width: 180, depth: 180 },
           { objects },

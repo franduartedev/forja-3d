@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
+import { auditBufferGeometry } from "../lib/experimental/manifold-geometry";
 import { createModelGeometries } from "../lib/model-geometry";
 import { TEMPLATES } from "../lib/models";
 import type { CustomObject } from "../lib/models";
@@ -99,16 +100,16 @@ function assertClosedSurface(geometry: THREE.BufferGeometry) {
   assert.equal(openEdges.length, 0, "geometry contains open or non-manifold edges");
 }
 
-test("all parametric templates create finite printable meshes", () => {
+test("all parametric templates create finite printable meshes", async () => {
   for (const template of TEMPLATES.filter((item) => item.id !== "free")) {
-    const geometries = createModelGeometries(template.id, template.defaults);
+    const geometries = await createModelGeometries(template.id, template.defaults);
     assert.ok(geometries.length > 0, template.id);
     geometries.forEach(assertValidGeometry);
     geometries.forEach((geometry) => geometry.dispose());
   }
 });
 
-test("valid minimum and maximum build sizes remain numerically stable", () => {
+test("valid minimum and maximum build sizes remain numerically stable", async () => {
   const cases = [
     ["box", { width: 20, depth: 20, height: 10, wall: 1.2, bottom: 1.2 }],
     ["box", { width: 235, depth: 235, height: 270, wall: 8, bottom: 8 }],
@@ -119,7 +120,7 @@ test("valid minimum and maximum build sizes remain numerically stable", () => {
   ] as const;
 
   for (const [templateId, parameters] of cases) {
-    const geometries = createModelGeometries(templateId, parameters, {
+    const geometries = await createModelGeometries(templateId, parameters, {
       holes: [],
       objects: [],
     });
@@ -129,7 +130,7 @@ test("valid minimum and maximum build sizes remain numerically stable", () => {
   }
 });
 
-test("box walls form one continuous ring with exact square corners", () => {
+test("box walls form one continuous ring with exact square corners", async () => {
   const parameters = {
     width: 80,
     depth: 50,
@@ -137,7 +138,7 @@ test("box walls form one continuous ring with exact square corners", () => {
     wall: 2,
     bottom: 2,
   };
-  const geometries = createModelGeometries("box", parameters, {
+  const geometries = await createModelGeometries("box", parameters, {
     holes: [],
     objects: [],
     cornerRadius: 0,
@@ -160,7 +161,7 @@ test("box walls form one continuous ring with exact square corners", () => {
   geometries.forEach((geometry) => geometry.dispose());
 });
 
-test("front cutouts subtract from the continuous box wall", () => {
+test("front cutouts subtract from the continuous box wall", async () => {
   const parameters = {
     width: 80,
     depth: 50,
@@ -174,11 +175,11 @@ test("front cutouts subtract from the continuous box wall", () => {
     lidStyle: "none" as const,
     standoffCount: 0,
   };
-  const withoutCutout = createModelGeometries("box", parameters, {
+  const withoutCutout = await createModelGeometries("box", parameters, {
     ...commonOptions,
     holes: [],
   });
-  const withCutout = createModelGeometries("box", parameters, {
+  const withCutout = await createModelGeometries("box", parameters, {
     ...commonOptions,
     holes: [
       {
@@ -200,10 +201,10 @@ test("front cutouts subtract from the continuous box wall", () => {
   withCutout.forEach((geometry) => geometry.dispose());
 });
 
-test("box accessories create valid additional meshes", () => {
+test("box accessories create valid additional meshes", async () => {
   const template = TEMPLATES.find((item) => item.id === "box");
   assert.ok(template);
-  const geometries = createModelGeometries("box", template.defaults, {
+  const geometries = await createModelGeometries("box", template.defaults, {
     lidStyle: "screw",
     lidThickness: 2,
     standoffCount: 4,
@@ -218,10 +219,10 @@ test("box accessories create valid additional meshes", () => {
   geometries.forEach((geometry) => geometry.dispose());
 });
 
-test("print layout places the lid beside the box and every part on the bed", () => {
+test("print layout places the lid beside the box and every part on the bed", async () => {
   const template = TEMPLATES.find((item) => item.id === "box");
   assert.ok(template);
-  const geometries = createModelGeometries(
+  const geometries = await createModelGeometries(
     "box",
     template.defaults,
     {
@@ -246,12 +247,12 @@ test("print layout places the lid beside the box and every part on the bed", () 
   geometries.forEach((geometry) => geometry.dispose());
 });
 
-test("free mode starts empty and keeps preview objects independently selectable", () => {
+test("free mode starts empty and keeps preview objects independently selectable", async () => {
   const parameters = { width: 120, depth: 100 };
-  assert.deepEqual(createModelGeometries("free", parameters), []);
+  assert.deepEqual(await createModelGeometries("free", parameters), []);
 
   const source = object("solid-a", "solid", { x: 22, rotation: 30 });
-  const geometries = createModelGeometries(
+  const geometries = await createModelGeometries(
     "free",
     parameters,
     { objects: [source] },
@@ -264,7 +265,7 @@ test("free mode starts empty and keeps preview objects independently selectable"
   geometries.forEach((geometry) => geometry.dispose());
 });
 
-test("boolean solids union and holes subtract without corrupting the mesh", () => {
+test("boolean solids union and holes subtract without corrupting the mesh", async () => {
   const parameters = { width: 120, depth: 100 };
   const first = object("solid-a", "solid", { x: -7 });
   const second = object("solid-b", "solid", { x: 7 });
@@ -275,14 +276,20 @@ test("boolean solids union and holes subtract without corrupting the mesh", () =
     height: 12,
     y: -1,
   });
-  const [unionGeometry] = createModelGeometries("free", parameters, {
+  const [unionGeometry] = await createModelGeometries("free", parameters, {
     objects: [first, second],
   });
-  const [geometry] = createModelGeometries("free", parameters, {
+  const [geometry] = await createModelGeometries("free", parameters, {
     objects: [first, second, cutter],
   });
 
   assertValidGeometry(geometry);
+  assert.deepEqual(auditBufferGeometry(geometry), {
+    finite: true,
+    componentCount: 1,
+    nonManifoldEdgeCount: 0,
+    degenerateTriangleCount: 0,
+  });
   assert.ok(volumeOf(geometry) < volumeOf(unionGeometry) - 100);
   const bounds = boundsOf(geometry);
   assert.ok(bounds.min.x <= -16.9);
@@ -293,7 +300,20 @@ test("boolean solids union and holes subtract without corrupting the mesh", () =
   geometry.dispose();
 });
 
-test("every free-editor primitive creates exportable geometry", () => {
+test("free finalization reports invalid operands instead of exporting", async () => {
+  const invalid = object("invalid-solid", "solid", { x: Number.NaN });
+
+  await assert.rejects(
+    createModelGeometries(
+      "free",
+      { width: 120, depth: 100 },
+      { objects: [invalid] },
+    ),
+    /No se puede exportar: Manifold rechazó el sólido “invalid-solid”/,
+  );
+});
+
+test("every free-editor primitive creates exportable geometry", async () => {
   const objects = [
     object("text", "solid", {
       kind: "text",
@@ -338,7 +358,7 @@ test("every free-editor primitive creates exportable geometry", () => {
       x: 78,
     }),
   ];
-  const geometries = createModelGeometries(
+  const geometries = await createModelGeometries(
     "free",
     { width: 120, depth: 100 },
     { objects },
@@ -348,10 +368,10 @@ test("every free-editor primitive creates exportable geometry", () => {
   geometries.forEach((geometry) => geometry.dispose());
 });
 
-test("hidden objects are excluded from preview and final geometry", () => {
+test("hidden objects are excluded from preview and final geometry", async () => {
   const visible = object("visible", "solid");
   const hidden = object("hidden", "solid", { hidden: true, x: 40 });
-  const preview = createModelGeometries(
+  const preview = await createModelGeometries(
     "free",
     { width: 120, depth: 100 },
     { objects: [visible, hidden] },
@@ -361,7 +381,7 @@ test("hidden objects are excluded from preview and final geometry", () => {
   assert.equal(preview[0].userData.forjaObject.id, "visible");
   preview.forEach((geometry) => geometry.dispose());
 
-  const [geometry] = createModelGeometries(
+  const [geometry] = await createModelGeometries(
     "free",
     { width: 120, depth: 100 },
     { objects: [visible, hidden] },

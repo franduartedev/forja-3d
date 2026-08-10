@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import * as THREE from "three";
+import { auditBufferGeometry } from "../lib/experimental/manifold-geometry";
 import { createModelGeometries } from "../lib/model-geometry";
 import {
   createEditableTemplateDesign,
@@ -11,6 +13,19 @@ import {
 
 let nextId = 0;
 const idFactory = (prefix: string) => `${prefix}-${nextId += 1}`;
+
+function overlapDepth(first: THREE.Box3, second: THREE.Box3) {
+  return {
+    x: Math.min(first.max.x, second.max.x) - Math.max(first.min.x, second.min.x),
+    y: Math.min(first.max.y, second.max.y) - Math.max(first.min.y, second.min.y),
+    z: Math.min(first.max.z, second.max.z) - Math.max(first.min.z, second.min.z),
+  };
+}
+
+function hasVolumetricOverlap(first: THREE.Box3, second: THREE.Box3) {
+  const overlap = overlapDepth(first, second);
+  return overlap.x > 0.01 && overlap.y > 0.01 && overlap.z > 0.01;
+}
 
 test("creates a primitive at the requested workplane position", () => {
   const object = createFreePrimitive({
@@ -196,7 +211,7 @@ test("expanded quick parts remain editable and printable", () => {
   );
 });
 
-test("parametric templates can become fully editable free objects", () => {
+test("parametric templates can become fully editable free objects", async () => {
   const editableBox = createEditableTemplateDesign(
     "box",
     { width: 80, depth: 50, height: 30, wall: 2, bottom: 2 },
@@ -243,12 +258,12 @@ test("parametric templates can become fully editable free objects", () => {
     ),
   );
 
-  [editableBox, editableBracket].forEach((objects, templateIndex) => {
-    const geometry = createModelGeometries(
+  for (const [templateIndex, objects] of [editableBox, editableBracket].entries()) {
+    const geometry = (await createModelGeometries(
       "free",
       { width: 220, depth: 220 },
       { objects },
-    )[0];
+    ))[0];
     assert.ok(geometry, `editable template ${templateIndex + 1} should export`);
     const positions = geometry.getAttribute("position");
     assert.ok(positions.count > 0);
@@ -256,18 +271,18 @@ test("parametric templates can become fully editable free objects", () => {
       assert.ok(Number.isFinite(positions.array[index]));
     }
     geometry.dispose();
-  });
+  }
 });
 
-test("every starter design produces finite free-mode geometry", () => {
-  STARTER_DESIGNS.forEach((design, designIndex) => {
+test("every starter design produces finite free-mode geometry", async () => {
+  for (const [designIndex, design] of STARTER_DESIGNS.entries()) {
     const objects = createStarterDesign(
       design.id,
       designIndex,
       { x: 0, z: 0 },
       idFactory,
     );
-    const geometries = createModelGeometries(
+    const geometries = await createModelGeometries(
       "free",
       { width: 180, depth: 180 },
       { objects },
@@ -281,49 +296,73 @@ test("every starter design produces finite free-mode geometry", () => {
         `${design.name} should not contain invalid coordinates`,
       );
     }
+    assert.deepEqual(
+      auditBufferGeometry(geometries[0]),
+      {
+        finite: true,
+        componentCount: 1,
+        nonManifoldEdgeCount: 0,
+        degenerateTriangleCount: 0,
+      },
+      `${design.name} should produce one manifold component`,
+    );
     geometries.forEach((geometry) => geometry.dispose());
-  });
+  }
 });
 
-test("starter designs do not contain floating solid groups", () => {
-  const tolerance = 0.5;
+test("surface contact is distinct from volumetric overlap", () => {
+  const base = new THREE.Box3(
+    new THREE.Vector3(-10, 0, -10),
+    new THREE.Vector3(10, 3, 10),
+  );
+  const touching = new THREE.Box3(
+    new THREE.Vector3(-5, 3, -5),
+    new THREE.Vector3(5, 12, 5),
+  );
+  const overlapping = touching.clone().translate(new THREE.Vector3(0, -0.5, 0));
 
-  STARTER_DESIGNS.forEach((design, designIndex) => {
+  assert.equal(overlapDepth(base, touching).y, 0);
+  assert.equal(hasVolumetricOverlap(base, touching), false);
+  assert.equal(overlapDepth(base, overlapping).y, 0.5);
+  assert.equal(hasVolumetricOverlap(base, overlapping), true);
+});
+
+test("starter designs connect every structural solid through real overlap", async () => {
+
+  for (const [designIndex, design] of STARTER_DESIGNS.entries()) {
     const solids = createStarterDesign(
       design.id,
       designIndex,
       { x: 0, z: 0 },
       idFactory,
     ).filter((object) => object.operation === "solid");
-    const bounds = solids.map((object) => {
-      const geometry = createModelGeometries(
+    const bounds: THREE.Box3[] = [];
+    for (const object of solids) {
+      const geometry = (await createModelGeometries(
         "free",
         { width: 180, depth: 180 },
         { objects: [object] },
-      )[0];
+        false,
+      ))[0];
+      geometry.rotateX(THREE.MathUtils.degToRad(object.rotationX ?? 0));
+      geometry.rotateY(THREE.MathUtils.degToRad(object.rotation));
+      geometry.rotateZ(THREE.MathUtils.degToRad(object.rotationZ ?? 0));
+      geometry.translate(object.x, object.y, object.z);
       geometry.computeBoundingBox();
       const box = geometry.boundingBox?.clone();
       geometry.dispose();
       assert.ok(box, `${design.name} should have measurable solid bounds`);
-      return box;
-    });
+      bounds.push(box);
+    }
     const connected = new Set([0]);
 
     for (let pass = 0; pass < bounds.length; pass += 1) {
       bounds.forEach((candidate, candidateIndex) => {
         if (connected.has(candidateIndex)) return;
-        const touchesConnectedSolid = [...connected].some((connectedIndex) => {
-          const current = bounds[connectedIndex];
-          return (
-            candidate.min.x <= current.max.x + tolerance &&
-            candidate.max.x >= current.min.x - tolerance &&
-            candidate.min.y <= current.max.y + tolerance &&
-            candidate.max.y >= current.min.y - tolerance &&
-            candidate.min.z <= current.max.z + tolerance &&
-            candidate.max.z >= current.min.z - tolerance
-          );
-        });
-        if (touchesConnectedSolid) connected.add(candidateIndex);
+        const overlapsConnectedSolid = [...connected].some((connectedIndex) =>
+          hasVolumetricOverlap(candidate, bounds[connectedIndex]),
+        );
+        if (overlapsConnectedSolid) connected.add(candidateIndex);
       });
     }
 
@@ -332,5 +371,5 @@ test("starter designs do not contain floating solid groups", () => {
       solids.length,
       `${design.name} contains a disconnected solid`,
     );
-  });
+  }
 });

@@ -488,7 +488,7 @@ export function createStarterDesign(
       }),
       make("cube", `Frente bandeja ${suffix}`, {
         x,
-        y: 2.8,
+        y: 2.5,
         z: z + 33.5,
         width: 100,
         depth: 3,
@@ -496,7 +496,7 @@ export function createStarterDesign(
       }),
       make("cube", `Fondo bandeja ${suffix}`, {
         x,
-        y: 2.8,
+        y: 2.5,
         z: z - 33.5,
         width: 100,
         depth: 3,
@@ -504,7 +504,7 @@ export function createStarterDesign(
       }),
       make("cube", `Lateral izquierdo ${suffix}`, {
         x: x - 48.5,
-        y: 2.8,
+        y: 2.5,
         z,
         width: 3,
         depth: 64,
@@ -512,7 +512,7 @@ export function createStarterDesign(
       }),
       make("cube", `Lateral derecho ${suffix}`, {
         x: x + 48.5,
-        y: 2.8,
+        y: 2.5,
         z,
         width: 3,
         depth: 64,
@@ -705,7 +705,7 @@ export function createStarterDesign(
       }),
       make("cube", `Frente carcasa ${suffix}`, {
         x,
-        y: 3,
+        y: 2.5,
         z: z + 19.5,
         width: 58,
         depth: 3,
@@ -713,7 +713,7 @@ export function createStarterDesign(
       }),
       make("cube", `Fondo carcasa ${suffix}`, {
         x,
-        y: 3,
+        y: 2.5,
         z: z - 19.5,
         width: 58,
         depth: 3,
@@ -721,7 +721,7 @@ export function createStarterDesign(
       }),
       make("cube", `Lateral izquierdo ${suffix}`, {
         x: x - 27.5,
-        y: 3,
+        y: 2.5,
         z,
         width: 3,
         depth: 36,
@@ -729,7 +729,7 @@ export function createStarterDesign(
       }),
       make("cube", `Lateral derecho ${suffix}`, {
         x: x + 27.5,
-        y: 3,
+        y: 2.5,
         z,
         width: 3,
         depth: 36,
@@ -780,22 +780,22 @@ export function createStarterDesign(
         x, z, width: 120, depth: 82, height: 3,
       }),
       make("cube", `Frente organizador ${suffix}`, {
-        x, y: 3, z: z + 39.5, width: 120, depth: 3, height: 24,
+        x, y: 2.5, z: z + 39.5, width: 120, depth: 3, height: 24,
       }),
       make("cube", `Fondo organizador ${suffix}`, {
-        x, y: 3, z: z - 39.5, width: 120, depth: 3, height: 24,
+        x, y: 2.5, z: z - 39.5, width: 120, depth: 3, height: 24,
       }),
       make("cube", `Lateral izquierdo ${suffix}`, {
-        x: x - 58.5, y: 3, z, width: 3, depth: 76, height: 24,
+        x: x - 58.5, y: 2.5, z, width: 3, depth: 76, height: 24,
       }),
       make("cube", `Lateral derecho ${suffix}`, {
-        x: x + 58.5, y: 3, z, width: 3, depth: 76, height: 24,
+        x: x + 58.5, y: 2.5, z, width: 3, depth: 76, height: 24,
       }),
       make("cube", `Divisor izquierdo ${suffix}`, {
-        x: x - 20, y: 3, z, width: 3, depth: 76, height: 18,
+        x: x - 20, y: 2.5, z, width: 3, depth: 76, height: 18,
       }),
       make("cube", `Divisor derecho ${suffix}`, {
-        x: x + 20, y: 3, z, width: 3, depth: 76, height: 18,
+        x: x + 20, y: 2.5, z, width: 3, depth: 76, height: 18,
       }),
     ];
   }
@@ -806,20 +806,20 @@ export function createStarterDesign(
         x, z, width: 82, depth: 54, height: 3,
       }),
       make("cube", `Frente portabaterías ${suffix}`, {
-        x, y: 3, z: z + 25.5, width: 82, depth: 3, height: 18,
+        x, y: 2.5, z: z + 25.5, width: 82, depth: 3, height: 18,
       }),
       make("cube", `Fondo portabaterías ${suffix}`, {
-        x, y: 3, z: z - 25.5, width: 82, depth: 3, height: 18,
+        x, y: 2.5, z: z - 25.5, width: 82, depth: 3, height: 18,
       }),
       make("cube", `Lateral izquierdo ${suffix}`, {
-        x: x - 39.5, y: 3, z, width: 3, depth: 48, height: 18,
+        x: x - 39.5, y: 2.5, z, width: 3, depth: 48, height: 18,
       }),
       make("cube", `Lateral derecho ${suffix}`, {
-        x: x + 39.5, y: 3, z, width: 3, depth: 48, height: 18,
+        x: x + 39.5, y: 2.5, z, width: 3, depth: 48, height: 18,
       }),
       ...[-20, 0, 20].map((offset, dividerIndex) =>
         make("cube", `Divisor batería ${dividerIndex + 1}`, {
-          x: x + offset, y: 3, z, width: 2.5, depth: 48, height: 14,
+          x: x + offset, y: 2.5, z, width: 2.5, depth: 48, height: 14,
         }),
       ),
     ];
@@ -873,7 +873,7 @@ export function createStarterDesign(
   if (design === "key-rack") {
     const hooks = [-42, -14, 14, 42].flatMap((offset, hookIndex) => [
       make("cube", `Brazo llave ${hookIndex + 1}`, {
-        x: x + offset, y: 4, z: z + 29, width: 9, depth: 28, height: 7,
+        x: x + offset, y: 3.5, z: z + 29, width: 9, depth: 28, height: 7.5,
       }),
       make("cube", `Tope llave ${hookIndex + 1}`, {
         x: x + offset, y: 4, z: z + 41, width: 13, depth: 6, height: 17,
@@ -1006,7 +1006,7 @@ export function createStarterDesign(
     ].map(([offsetX, offsetZ], postIndex) =>
       make("cylinder", `Separador PCB ${postIndex + 1}`, {
         x: x + offsetX,
-        y: 3,
+        y: 2.5,
         z: z + offsetZ,
         width: 9,
         depth: 9,
@@ -1095,7 +1095,7 @@ export function createStarterDesign(
         x, z, width: 72, depth: 72, height: 4,
       }),
       make("cylinder", `Núcleo carrete ${suffix}`, {
-        x, y: 4, z, width: 20, depth: 20, height: 44,
+        x, y: 3.5, z, width: 20, depth: 20, height: 45,
       }),
       make("cylinder", `Disco superior carrete ${suffix}`, {
         x, y: 48, z, width: 72, depth: 72, height: 4,
@@ -1139,13 +1139,13 @@ export function createStarterDesign(
         x, z, width: 120, depth: 18, height: 2,
       }),
       make("cube", `Guía izquierda LED ${suffix}`, {
-        x, y: 2, z: z - 8, width: 120, depth: 2, height: 6,
+        x, y: 1.5, z: z - 8, width: 120, depth: 2, height: 6.5,
       }),
       make("cube", `Guía derecha LED ${suffix}`, {
-        x, y: 2, z: z + 8, width: 120, depth: 2, height: 6,
+        x, y: 1.5, z: z + 8, width: 120, depth: 2, height: 6.5,
       }),
       make("cube", `Tope canal LED ${suffix}`, {
-        x: x - 59, y: 2, z, width: 2, depth: 16, height: 6,
+        x: x - 59, y: 1.5, z, width: 2, depth: 16, height: 6.5,
       }),
     ];
   }
