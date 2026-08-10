@@ -11,46 +11,6 @@ type LandingPageProps = {
   onRecover: () => void;
 };
 
-const quickStarts: Array<{
-  id: TemplateId;
-  icon: string;
-  name: string;
-  detail: string;
-}> = [
-  { id: "box", icon: "▣", name: "Caja", detail: "Carcasas y gabinetes" },
-  { id: "bracket", icon: "⌞", name: "Soporte L", detail: "Uniones y refuerzos" },
-  { id: "plate", icon: "⊙", name: "Placa", detail: "Bases y perforaciones" },
-  { id: "free", icon: "✦", name: "Diseño libre", detail: "Construí sin plantilla" },
-];
-
-const possibilities = [
-  { icon: "▣", title: "Cajas técnicas", copy: "Ajustá paredes, tapa, soportes y recortes con medidas reales." },
-  { icon: "⌞", title: "Soportes", copy: "Creá uniones resistentes y modificá espesores y agujeros." },
-  { icon: "⊙", title: "Placas", copy: "Prepará bases perforadas listas para adaptar a tu proyecto." },
-  { icon: "T", title: "Texto 3D", copy: "Sumá nombres, etiquetas, relieve o grabado a tus piezas." },
-  { icon: "◉", title: "Formas combinadas", copy: "Uní sólidos y aplicá recortes sin aprender operaciones complejas." },
-  { icon: "◇", title: "Diseños propios", copy: "Guardá, duplicá e intercambiá proyectos en formato .forja." },
-];
-
-const faqs = [
-  [
-    "¿Necesito saber diseño 3D?",
-    "No. FORJA traduce medidas y decisiones simples a geometría 3D. Podés comenzar con una plantilla y avanzar hacia el editor libre cuando quieras.",
-  ],
-  [
-    "¿El archivo sale listo para la impresora?",
-    "FORJA genera el modelo y comprueba su geometría. Después debés abrir el STL o 3MF en Cura, OrcaSlicer u otro laminador para elegir material, calidad y generar el G-code de tu impresora.",
-  ],
-  [
-    "¿Dónde se guardan mis diseños?",
-    "En esta versión se guardan localmente en tu dispositivo. También podés exportar un proyecto .forja para moverlo a otro equipo o conservar una copia.",
-  ],
-  [
-    "¿FORJA es gratis y open source?",
-    "Sí. El proyecto utiliza la licencia AGPL-3.0 y está pensado para que aprender y crear piezas útiles sea más accesible.",
-  ],
-];
-
 export default function LandingPage({
   recoveryDraftName,
   projectCount,
@@ -162,119 +122,67 @@ export default function LandingPage({
 
         <section className="landing-section landing-how" id="como-funciona" aria-labelledby="how-title">
           <div className="landing-section-heading">
-            <span className="landing-eyebrow">De la idea al archivo 3D</span>
-            <h2 id="how-title">Un proceso claro, incluso si nunca diseñaste.</h2>
-            <p>FORJA esconde la complejidad técnica sin quitarte el control de las medidas.</p>
+            <span className="landing-eyebrow">Cómo funciona</span>
+            <h2 id="how-title">De una idea a un STL, en cuatro pasos.</h2>
+            <p>FORJA organiza las decisiones de modelado en un recorrido visual y directo.</p>
           </div>
-          <div className="landing-step-grid">
-            <article><span>01</span><i aria-hidden="true">▦</i><h3>Elegí cómo empezar</h3><p>Usá una plantilla paramétrica o abrí un lienzo completamente libre.</p></article>
-            <article><span>02</span><i aria-hidden="true">↔</i><h3>Ajustá y construí</h3><p>Escribí medidas, agregá sólidos, textos y recortes donde los necesites.</p></article>
-            <article><span>03</span><i aria-hidden="true">✓</i><h3>Comprobá y exportá</h3><p>Revisá la geometría y descargá el formato adecuado para continuar.</p></article>
-          </div>
+          <ol className="landing-process">
+            <li><span>01</span><div><strong>Elegí un punto de partida</strong><p>Usá una plantilla o un diseño inicial editable.</p></div></li>
+            <li><span>02</span><div><strong>Personalizá la pieza</strong><p>Ajustá medidas, formas y recortes.</p></div></li>
+            <li><span>03</span><div><strong>Comprobá el modelo</strong><p>Revisá la geometría antes de exportar.</p></div></li>
+            <li><span>04</span><div><strong>Descargá el STL</strong><p>Abrilo en OrcaSlicer, Cura o PrusaSlicer.</p></div></li>
+          </ol>
         </section>
 
-        <section className="landing-section" id="posibilidades" aria-labelledby="possibilities-title">
-          <div className="landing-section-heading centered">
-            <span className="landing-eyebrow">Más posibilidades para crear</span>
-            <h2 id="possibilities-title">Empezá rápido. Personalizá todo.</h2>
-            <p>Cada diseño inicial es un punto de partida, no una pieza cerrada.</p>
-          </div>
-          <div className="landing-possibility-grid">
-            {possibilities.map((item, index) => (
-              <article key={item.title}>
-                <div className={`landing-piece piece-${index + 1}`}><i>{item.icon}</i></div>
-                <h3>{item.title}</h3>
-                <p>{item.copy}</p>
-              </article>
-            ))}
-          </div>
-          <div className="landing-quick-start">
-            <div><span className="landing-eyebrow">Crear ahora</span><h3>¿Qué querés diseñar?</h3></div>
-            <div>
-              {quickStarts.map((item) => (
-                <button key={item.id} onClick={() => onStart(item.id)}>
-                  <i aria-hidden="true">{item.icon}</i>
-                  <span><strong>{item.name}</strong><small>{item.detail}</small></span>
-                  <b aria-hidden="true">→</b>
-                </button>
-              ))}
+        <section className="landing-section landing-capabilities" id="posibilidades" aria-labelledby="capabilities-title">
+          <div className="landing-capabilities-copy">
+            <div className="landing-section-heading">
+              <span className="landing-eyebrow">Capacidades actuales</span>
+              <h2 id="capabilities-title">Herramientas concretas para construir y ajustar.</h2>
+              <p>Empezá con estructura o construí libremente. Todo sigue siendo editable.</p>
+            </div>
+            <div className="landing-capability-columns">
+              <ul>
+                <li><strong>Plantillas paramétricas</strong><span>Cajas, soportes y placas con controles dedicados.</span></li>
+                <li><strong>Editor libre</strong><span>Combiná sólidos y aplicá recortes.</span></li>
+                <li><strong>Texto y formas básicas</strong><span>Agregá geometría y personalizá cada objeto.</span></li>
+                <li><strong>Medidas en milímetros</strong><span>Definí dimensiones y posiciones numéricas.</span></li>
+              </ul>
+              <ul>
+                <li><strong>Guardado local</strong><span>Conservá proyectos y archivos editables .forja.</span></li>
+                <li><strong>Comprobación geométrica</strong><span>Revisá el modelo antes de descargarlo.</span></li>
+                <li><strong>Exportación STL</strong><span>Continuá la preparación en tu laminador.</span></li>
+              </ul>
+            </div>
+            <div className="landing-capability-actions">
+              <button className="landing-primary single-line" onClick={() => onStart("box")}>Usar una plantilla <span aria-hidden="true">→</span></button>
+              <button className="landing-secondary" onClick={() => onStart("free")}>Abrir editor libre</button>
             </div>
           </div>
-        </section>
-
-        <section className="landing-free" id="editor-libre" aria-labelledby="free-title">
-          <div className="landing-free-demo" aria-hidden="true">
-            <div className="landing-layers">
-              <span>CAPAS</span>
-              <div><i className="solid" />Cubo base <b>●</b></div>
-              <div><i className="hole" />Recorte circular <b>●</b></div>
-              <div><i className="solid" />Texto FORJA <b>●</b></div>
+          <figure className="landing-capability-preview">
+            <div className="landing-capability-preview-stage">
+              <DesignGeometryPreview designId="phone-stand" name="Soporte para celular" />
             </div>
-            <div className="landing-free-canvas"><span /><i className="shape-one"/><i className="shape-two"/><b>FORJA</b></div>
-            <div className="landing-transform"><span>MOVER</span><strong>X&nbsp; 12.0</strong><strong>Y&nbsp; 0.0</strong><strong>Z&nbsp; −8.0</strong></div>
-          </div>
-          <div className="landing-free-copy">
-            <span className="landing-eyebrow">Editor libre</span>
-            <h2 id="free-title">Tu idea no tiene que entrar en una plantilla.</h2>
-            <p>Combiná formas y transformá cada elemento con controles visuales o medidas exactas.</p>
-            <ul>
-              <li><i aria-hidden="true">+</i><span><strong>Sólidos y recortes</strong><small>Construí agregando material o quitándolo.</small></span></li>
-              <li><i aria-hidden="true">T</i><span><strong>Texto personalizable</strong><small>Creá etiquetas, marcas y carteles.</small></span></li>
-              <li><i aria-hidden="true">↔</i><span><strong>Mover, rotar y escalar</strong><small>Usá el gizmo 3D o escribí valores precisos.</small></span></li>
-              <li><i aria-hidden="true">↶</i><span><strong>Historial de cambios</strong><small>Deshacé y rehacé mientras explorás.</small></span></li>
-            </ul>
-            <button className="landing-primary single-line" onClick={() => onStart("free")}>Abrir un lienzo libre <span aria-hidden="true">→</span></button>
-          </div>
-        </section>
-
-        <section className="landing-section landing-manufacture" aria-labelledby="manufacture-title">
-          <div className="landing-section-heading">
-            <span className="landing-eyebrow">Fabricación sin falsas promesas</span>
-            <h2 id="manufacture-title">FORJA prepara el modelo. Tu laminador prepara la impresión.</h2>
-            <p>Te mostramos con claridad dónde termina el diseño y dónde comienza la configuración de tu impresora.</p>
-          </div>
-          <div className="landing-manufacture-flow">
-            <article><i>1</i><span><strong>Diseñá en FORJA</strong><small>Medidas, formas y recortes</small></span></article>
-            <b aria-hidden="true">→</b>
-            <article><i>2</i><span><strong>Exportá el modelo</strong><small>STL, 3MF o STEP</small></span></article>
-            <b aria-hidden="true">→</b>
-            <article><i>3</i><span><strong>Laminá para tu impresora</strong><small>Cura, OrcaSlicer u otro</small></span></article>
-          </div>
+            <figcaption><span>DISEÑO INICIAL EDITABLE</span><strong>Soporte para celular</strong><p>Geometría generada por el mismo pipeline que usa el editor.</p></figcaption>
+          </figure>
         </section>
 
         <section className="landing-open" id="codigo-abierto" aria-labelledby="open-title">
-          <div>
-            <span className="landing-eyebrow">Código abierto · AGPL-3.0</span>
-            <h2 id="open-title">Una herramienta argentina para que más personas puedan crear.</h2>
-            <p>FORJA nace para acercar el diseño 3D a estudiantes, makers, técnicos, docentes y cualquiera que tenga una idea útil.</p>
-            <a
-              className="landing-source-link"
-              href="https://github.com/franduartedev/forja-3d"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Ver el código fuente en GitHub <span aria-hidden="true">↗</span>
-            </a>
+          <div className="landing-open-heading">
+            <span className="landing-eyebrow">Proyecto abierto y verificable</span>
+            <h2 id="open-title">FORJA muestra con claridad qué hace hoy.</h2>
+            <p>Una herramienta web desarrollada en Argentina, con código público y un alcance de producto explícito.</p>
+            <a className="landing-source-link" href="https://github.com/franduartedev/forja-3d" target="_blank" rel="noreferrer">Ver repositorio en GitHub <span aria-hidden="true">↗</span></a>
           </div>
-          <div className="landing-open-values">
-            <article><i aria-hidden="true">◇</i><span><strong>Accesible</strong><small>Menos barreras para empezar</small></span></article>
-            <article><i aria-hidden="true">{"{}"}</i><span><strong>Abierto</strong><small>Auditable y mejorable por la comunidad</small></span></article>
-            <article><i aria-hidden="true">AR</i><span><strong>Local</strong><small>Pensado desde Argentina para el mundo</small></span></article>
-          </div>
-        </section>
-
-        <section className="landing-section landing-faq" aria-labelledby="faq-title">
-          <div className="landing-section-heading centered">
-            <span className="landing-eyebrow">Preguntas frecuentes</span>
-            <h2 id="faq-title">Lo importante antes de empezar.</h2>
-          </div>
-          <div className="landing-faq-list">
-            {faqs.map(([question, answer]) => (
-              <details key={question}>
-                <summary>{question}<span aria-hidden="true">+</span></summary>
-                <p>{answer}</p>
-              </details>
-            ))}
+          <div className="landing-trust-facts">
+            <ul>
+              <li><span>Licencia</span><strong>AGPL-3.0</strong></li>
+              <li><span>Código fuente</span><strong>Repositorio público en GitHub</strong></li>
+              <li><span>Origen</span><strong>Desarrollado en Argentina</strong></li>
+              <li><span>Proyectos</span><strong>Guardados localmente</strong></li>
+              <li><span>Disponible</span><strong>Comprobación y exportación STL</strong></li>
+              <li><span>En desarrollo</span><strong>Preparación de impresión y G-code</strong></li>
+            </ul>
           </div>
         </section>
 
