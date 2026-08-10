@@ -70,6 +70,7 @@ import type {
 type CameraView = "iso" | "x" | "y" | "z";
 type TransformMode = "translate" | "rotate" | "scale";
 type FreeEditorView = "create" | "designs" | "objects";
+const GCODE_GENERATION_ENABLED = false;
 type ObjectHistory = {
   past: CustomObject[][];
   future: CustomObject[][];
@@ -5082,7 +5083,7 @@ export default function Home() {
           <section className="manufacturing-summary" aria-label="Resumen de fabricación">
           <div className="panel-heading compact-heading">
             <span className="eyebrow">Comprobación final</span>
-            <h2>Lista para fabricar</h2>
+            <h2>Lista para exportar</h2>
           </div>
 
           <div className={`status-card ${
@@ -5105,6 +5106,44 @@ export default function Home() {
                     : "Agregá un sólido para comenzar a diseñar."}
               </p>
             </div>
+          </div>
+
+          <div className="export-zone">
+            <span className="eyebrow">Exportar modelo</span>
+            <button
+              className="button primary export-button"
+              onClick={() => void exportModel("stl")}
+              disabled={!canExport || Boolean(exporting)}
+            >
+              <span>Descargar STL</span>
+              <small>Formato universal para laminadores</small>
+            </button>
+            <div className="secondary-formats">
+              <strong>Otros formatos</strong>
+              <div className="export-grid">
+                <button
+                  className="format-button"
+                  onClick={() => void exportModel("3mf")}
+                  disabled={!canExport || Boolean(exporting)}
+                >
+                  <span>3MF</span>
+                  <small>Proyecto moderno</small>
+                </button>
+                <button
+                  className="format-button"
+                  onClick={() => void exportModel("step")}
+                  disabled={!canExport || Boolean(exporting)}
+                >
+                  <span>STEP</span>
+                  <small>Malla facetada</small>
+                </button>
+              </div>
+            </div>
+            <p>
+              {exporting
+                ? `Generando ${exporting.toUpperCase()}…`
+                : "Los archivos se generan localmente en tu navegador."}
+            </p>
           </div>
 
           {validation.errors.map((error) => (
@@ -5209,47 +5248,25 @@ export default function Home() {
             <p>Estimación para {activeMaterial.label}; Cura u Orca darán el cálculo final.</p>
           </div>
 
-          <SlicerPanel
-            disabled={!canExport}
-            slicing={slicing}
-            result={sliceResult}
-            onSlice={sliceCurrentModel}
-          />
-
-          <div className="export-zone">
-            <span className="eyebrow">Exportar modelo</span>
-            <div className="export-grid">
-              <button
-                className="button primary export-button"
-                onClick={() => void exportModel("stl")}
-                disabled={!canExport || Boolean(exporting)}
-              >
-                <span>STL</span>
-                <small>Impresión universal</small>
-              </button>
-              <button
-                className="format-button"
-                onClick={() => void exportModel("3mf")}
-                disabled={!canExport || Boolean(exporting)}
-              >
-                <span>3MF</span>
-                <small>Proyecto moderno</small>
-              </button>
-              <button
-                className="format-button"
-                onClick={() => void exportModel("step")}
-                disabled={!canExport || Boolean(exporting)}
-              >
-                <span>STEP</span>
-                <small>Malla facetada</small>
-              </button>
-            </div>
-            <p>
-              {exporting
-                ? `Generando ${exporting.toUpperCase()}…`
-                : "Los archivos se generan localmente en tu navegador."}
-            </p>
-          </div>
+          {GCODE_GENERATION_ENABLED ? (
+            <SlicerPanel
+              disabled={!canExport}
+              slicing={slicing}
+              result={sliceResult}
+              onSlice={sliceCurrentModel}
+            />
+          ) : (
+            <section className="slicer-coming-soon" aria-labelledby="slicer-coming-soon-title">
+              <div>
+                <span className="eyebrow">Preparar impresión</span>
+                <strong id="slicer-coming-soon-title">En desarrollo</strong>
+              </div>
+              <p>
+                Por ahora descargá el STL y abrilo en OrcaSlicer, Cura o
+                PrusaSlicer.
+              </p>
+            </section>
+          )}
 
             </>
           )}
