@@ -1,4 +1,5 @@
 import type { TemplateId } from "../../lib/models";
+import DesignGeometryPreview from "./DesignGeometryPreview";
 
 type LandingPageProps = {
   recoveryDraftName?: string;
@@ -54,7 +55,6 @@ export default function LandingPage({
   recoveryDraftName,
   projectCount,
   onStart,
-  onTutorial,
   onLibrary,
   onImport,
   onRecover,
@@ -79,12 +79,22 @@ export default function LandingPage({
 
       <header className="landing-header">
         <a className="landing-logo" href="#inicio" aria-label="FORJA, inicio" />
-        <nav aria-label="Navegación principal">
+        <nav className="landing-desktop-nav" aria-label="Navegación principal">
+          <a href="#producto">Producto</a>
           <a href="#como-funciona">Cómo funciona</a>
-          <a href="#posibilidades">Diseños</a>
-          <a href="#editor-libre">Editor libre</a>
-          <a href="#codigo-abierto">Open source</a>
+          <a href="#codigo-abierto">Código abierto</a>
         </nav>
+        <details className="landing-mobile-menu">
+          <summary aria-label="Abrir menú de navegación">
+            <span>Menú</span>
+            <i aria-hidden="true" />
+          </summary>
+          <nav aria-label="Navegación móvil">
+            <a href="#producto">Producto</a>
+            <a href="#como-funciona">Cómo funciona</a>
+            <a href="#codigo-abierto">Código abierto</a>
+          </nav>
+        </details>
         <button className="landing-header-cta" onClick={() => onStart("box")}>
           Abrir editor
           <span aria-hidden="true">→</span>
@@ -95,67 +105,45 @@ export default function LandingPage({
         <section className="landing-hero" id="inicio" aria-labelledby="landing-title">
           <div className="landing-hero-copy">
             <span className="landing-eyebrow">
-              <i aria-hidden="true" /> Diseño 3D asistido · Hecho en Argentina
+              Editor 3D en el navegador · Open source
             </span>
             <h1 id="landing-title">
-              Diseñá piezas 3D útiles <em>sin dominar un CAD.</em>
+              Creá piezas 3D a medida <em>sin aprender un CAD complejo.</em>
             </h1>
             <p>
-              Convertí medidas e ideas en modelos editables. Comprobá la geometría
-              y exportá en STL, 3MF o STEP directamente desde el navegador.
+              Partí de una plantilla o combiná formas, ajustá medidas reales,
+              comprobá el modelo y descargá un STL para abrir en tu laminador.
             </p>
             <div className="landing-hero-actions">
               <button className="landing-primary" onClick={() => onStart("box")}>
-                Crear mi primera pieza
-                <span>Empezar con una plantilla editable</span>
+                Crear desde una plantilla
               </button>
-              <button className="landing-secondary" onClick={onTutorial}>
-                <i aria-hidden="true">▶</i> Ver cómo funciona
+              <button className="landing-secondary" onClick={() => onStart("free")}>
+                Abrir editor libre
               </button>
+              <a className="landing-tertiary" href="#como-funciona">
+                Ver cómo funciona <span aria-hidden="true">↓</span>
+              </a>
             </div>
-            <ul className="landing-trust-list" aria-label="Ventajas principales">
-              <li><i aria-hidden="true">✓</i> Sin instalar</li>
-              <li><i aria-hidden="true">✓</i> Medidas reales</li>
-              <li><i aria-hidden="true">✓</i> Tus archivos son locales</li>
-            </ul>
           </div>
 
-          <div className="landing-product-stage" aria-label="Vista conceptual del editor FORJA">
-            <div className="landing-app-window">
-              <div className="landing-window-bar">
-                <span><i /><i /><i /></span>
-                <strong>mi-caja-electrónica.forja</strong>
-                <small>Guardado</small>
-              </div>
-              <div className="landing-window-body">
-                <aside>
-                  <span>01 · PROYECTO</span>
-                  <strong>Caja electrónica</strong>
-                  <div className="landing-fake-field"><small>Ancho</small><b>80 mm</b></div>
-                  <div className="landing-fake-field"><small>Profundidad</small><b>50 mm</b></div>
-                  <div className="landing-fake-field"><small>Altura</small><b>30 mm</b></div>
-                  <div className="landing-fake-tool"><i>+</i> Agregar recorte</div>
-                </aside>
-                <div className="landing-model-space">
-                  <span className="landing-model-grid" />
-                  <div className="landing-model">
-                    <i /><b /><em />
-                  </div>
-                  <span className="landing-dimension width">80 mm</span>
-                  <span className="landing-dimension height">30 mm</span>
-                  <div className="landing-axis"><i>X</i><i>Y</i><i>Z</i></div>
-                </div>
-              </div>
+          <figure className="landing-product-stage" id="producto">
+            <div className="landing-product-heading">
+              <span>MODELO GENERADO POR FORJA</span>
+              <strong>Organizador de escritorio</strong>
             </div>
-            <div className="landing-valid-card">
-              <i aria-hidden="true">✓</i>
-              <span><strong>Geometría válida</strong><small>Lista para exportar</small></span>
+            <div className="landing-real-preview-stage">
+              <DesignGeometryPreview
+                designId="desk-organizer"
+                name="Organizador de escritorio"
+              />
             </div>
-            <div className="landing-format-card">
-              <small>EXPORTAR</small>
-              <span><b>STL</b><b>3MF</b><b>STEP</b></span>
-            </div>
-          </div>
+            <figcaption>
+              <span><i aria-hidden="true" /> Medidas editables</span>
+              <span><i aria-hidden="true" /> Modelo comprobado</span>
+              <span><i aria-hidden="true" /> Exportar STL</span>
+            </figcaption>
+          </figure>
         </section>
 
         {recoveryDraftName && (
@@ -165,12 +153,12 @@ export default function LandingPage({
           </section>
         )}
 
-        <section className="landing-proof" aria-label="Características de FORJA">
-          <div><strong>100%</strong><span>En el navegador<small>No requiere instalación</small></span></div>
-          <div><strong>mm</strong><span>Medidas reales<small>Precisión paramétrica</small></span></div>
-          <div><strong>3</strong><span>Formatos de salida<small>STL · 3MF · STEP</small></span></div>
-          <div><strong>∞</strong><span>Diseños editables<small>Plantillas o modo libre</small></span></div>
-        </section>
+        <ul className="landing-proof" aria-label="Características de FORJA">
+          <li>Funciona en el navegador</li>
+          <li>Proyectos guardados localmente</li>
+          <li>Exportación STL</li>
+          <li>Código abierto</li>
+        </ul>
 
         <section className="landing-section landing-how" id="como-funciona" aria-labelledby="how-title">
           <div className="landing-section-heading">
