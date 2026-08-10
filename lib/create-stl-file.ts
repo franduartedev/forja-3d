@@ -1,4 +1,5 @@
 import type { BufferGeometry } from "three";
+import { orientGeometriesForPrint } from "./print-orientation";
 
 export async function createStlFile(
   geometries: BufferGeometry[],
@@ -10,16 +11,22 @@ export async function createStlFile(
   ]);
 
   const group = new THREE.Group();
+  const oriented = orientGeometriesForPrint(geometries);
 
-  geometries.forEach((geometry) => {
+  oriented.geometries.forEach((geometry) => {
     group.add(new THREE.Mesh(geometry));
   });
 
   group.name = fileName;
 
-  const data = new STLExporter().parse(group, {
-    binary: true,
-  });
+  let data: ArrayBuffer | DataView;
+  try {
+    data = new STLExporter().parse(group, {
+      binary: true,
+    });
+  } finally {
+    oriented.geometries.forEach((geometry) => geometry.dispose());
+  }
 
   const blob = new Blob([data as BlobPart], {
     type: "model/stl",
