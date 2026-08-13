@@ -1,4 +1,9 @@
-import type { TemplateId } from "../../lib/models";
+import {
+  modelPrimarySpec,
+  TEMPLATES,
+  type TemplateDefinition,
+  type TemplateId,
+} from "../../lib/models";
 import DesignGeometryPreview from "./DesignGeometryPreview";
 
 type LandingPageProps = {
@@ -11,10 +16,90 @@ type LandingPageProps = {
   onRecover: () => void;
 };
 
+type TemplateCategory = {
+  id: string;
+  name: string;
+  description: string;
+  templateIds: TemplateId[];
+};
+
+const TEMPLATE_CATEGORIES: TemplateCategory[] = [
+  {
+    id: "cajas",
+    name: "Cajas y tapas",
+    description: "Contener, proteger o alojar electrónica.",
+    templateIds: ["box"],
+  },
+  {
+    id: "montaje",
+    name: "Montaje",
+    description: "Fijar, sostener o atornillar piezas.",
+    templateIds: ["bracket"],
+  },
+  {
+    id: "simples",
+    name: "Piezas simples",
+    description: "Bases planas y puntos de fijación.",
+    templateIds: ["plate"],
+  },
+];
+
+const TEMPLATE_VISIBLE_COPY: Record<
+  Exclude<TemplateId, "free">,
+  { name: string; description: string }
+> = {
+  box: {
+    name: "Caja para electrónica",
+    description: "Armá una caja con paredes, base, tapa y recortes ajustables.",
+  },
+  bracket: {
+    name: "Soporte en L",
+    description: "Creá un soporte reforzado con agujeros para fijación.",
+  },
+  plate: {
+    name: "Placa perforada",
+    description: "Diseñá una base plana con agujeros de montaje.",
+  },
+};
+
+function TemplateStartCard({
+  template,
+  onStart,
+}: {
+  template: TemplateDefinition;
+  onStart: (template: TemplateId) => void;
+}) {
+  if (template.id === "free") return null;
+  const copy = TEMPLATE_VISIBLE_COPY[template.id];
+  const spec = modelPrimarySpec(template.id, template.defaults);
+
+  return (
+    <article className="creation-template-card">
+      <div className="creation-template-main">
+        <span className="creation-template-icon" aria-hidden="true">
+          {template.icon}
+        </span>
+        <div>
+          <h3>{copy.name}</h3>
+          <p>{copy.description}</p>
+        </div>
+      </div>
+      <dl>
+        <div>
+          <dt>{spec.label}</dt>
+          <dd>{spec.value}</dd>
+        </div>
+      </dl>
+      <button onClick={() => onStart(template.id)}>Usar plantilla</button>
+    </article>
+  );
+}
+
 export default function LandingPage({
   recoveryDraftName,
   projectCount,
   onStart,
+  onTutorial,
   onLibrary,
   onImport,
   onRecover,
@@ -55,36 +140,111 @@ export default function LandingPage({
             <a href="#codigo-abierto">Código abierto</a>
           </nav>
         </details>
-        <button className="landing-header-cta" onClick={() => onStart("box")}>
-          Abrir editor
+        <a className="landing-header-cta" href="#crear">
+          Crear pieza
           <span aria-hidden="true">→</span>
-        </button>
+        </a>
       </header>
 
       <main id="landing-main">
-        <section className="landing-hero" id="inicio" aria-labelledby="landing-title">
+        <section className="creation-start" id="crear" aria-labelledby="creation-title">
+          <div className="creation-start-copy">
+            <span className="landing-eyebrow">
+              Crear una pieza
+            </span>
+            <h1 id="creation-title">¿Qué querés crear?</h1>
+            <p>
+              Elegí un punto de partida. Después vas a poder ajustar medidas,
+              formas y detalles.
+            </p>
+          </div>
+
+          <div className="creation-choice-grid" aria-label="Puntos de partida">
+            <a className="creation-choice recommended" href="#plantillas">
+              <span className="creation-choice-icon" aria-hidden="true">▣</span>
+              <span>
+                <strong>Crear desde una plantilla</strong>
+                <small>Partí de una pieza preparada y ajustala a tus medidas.</small>
+              </span>
+              <b>Recomendado</b>
+            </a>
+            <button className="creation-choice" onClick={() => onStart("free")}>
+              <span className="creation-choice-icon" aria-hidden="true">✦</span>
+              <span>
+                <strong>Editor libre</strong>
+                <small>Combiná formas y recortes para construir una pieza desde cero.</small>
+              </span>
+              <b>Avanzado</b>
+            </button>
+            {projectCount > 0 && (
+              <button className="creation-choice" onClick={onLibrary}>
+                <span className="creation-choice-icon" aria-hidden="true">↻</span>
+                <span>
+                  <strong>Continuar un proyecto</strong>
+                  <small>Volvé a uno de tus diseños guardados.</small>
+                </span>
+                <b>{projectCount}</b>
+              </button>
+            )}
+          </div>
+
+          <section className="creation-template-section" id="plantillas" aria-labelledby="template-start-title">
+            <div className="creation-template-heading">
+              <span className="landing-eyebrow">Plantillas</span>
+              <h2 id="template-start-title">Elegí una pieza cercana a lo que necesitás.</h2>
+              <p>No agregamos plantillas nuevas acá: son las opciones reales disponibles hoy.</p>
+            </div>
+            <div className="creation-category-list">
+              {TEMPLATE_CATEGORIES.map((category) => {
+                const templates = category.templateIds
+                  .map((id) => TEMPLATES.find((template) => template.id === id))
+                  .filter((template): template is TemplateDefinition => Boolean(template));
+                if (!templates.length) return null;
+
+                return (
+                  <section className="creation-category" aria-labelledby={`category-${category.id}`} key={category.id}>
+                    <header>
+                      <div>
+                        <h3 id={`category-${category.id}`}>{category.name}</h3>
+                        <p>{category.description}</p>
+                      </div>
+                    </header>
+                    <div className="creation-template-grid">
+                      {templates.map((template) => (
+                        <TemplateStartCard
+                          template={template}
+                          onStart={onStart}
+                          key={template.id}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+            <div className="creation-start-footer">
+              <button className="landing-secondary" onClick={onTutorial}>
+                Ver guía inicial
+              </button>
+              <button className="landing-secondary" onClick={onImport}>
+                Importar .forja
+              </button>
+            </div>
+          </section>
+        </section>
+
+        <section className="landing-hero compact-landing-hero" id="inicio" aria-labelledby="landing-title">
           <div className="landing-hero-copy">
             <span className="landing-eyebrow">
               Editor 3D en el navegador · Open source
             </span>
-            <h1 id="landing-title">
+            <h2 id="landing-title">
               Creá piezas 3D a medida <em>sin aprender un CAD complejo.</em>
-            </h1>
+            </h2>
             <p>
               Partí de una plantilla o combiná formas, ajustá medidas reales,
               comprobá el modelo y descargá un STL para abrir en tu laminador.
             </p>
-            <div className="landing-hero-actions">
-              <button className="landing-primary" onClick={() => onStart("box")}>
-                Crear desde una plantilla
-              </button>
-              <button className="landing-secondary" onClick={() => onStart("free")}>
-                Abrir editor libre
-              </button>
-              <a className="landing-tertiary" href="#como-funciona">
-                Ver cómo funciona <span aria-hidden="true">↓</span>
-              </a>
-            </div>
           </div>
 
           <figure className="landing-product-stage" id="producto">

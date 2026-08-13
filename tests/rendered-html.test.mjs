@@ -31,6 +31,8 @@ test("renders the public product landing and preview metadata", async () => {
   );
   const html = await response.text();
   assert.match(html, developmentPreviewMeta);
+  assert.match(html, /¿Qué querés crear\?/);
+  assert.match(html, /Crear desde una plantilla/);
   assert.match(html, /Diseñá piezas 3D útiles/);
   assert.match(html, /STL/);
   assert.match(html, /AGPL-3\.0/);

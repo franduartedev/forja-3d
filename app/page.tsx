@@ -1614,6 +1614,12 @@ export default function Home() {
     templateId !== "free" ||
     visibleObjects.some((object) => object.operation !== "hole");
   const canExport = isValid && hasPrintableGeometry;
+  const geometryStatusLabel = !isValid
+    ? "Necesita corrección"
+    : hasPrintableGeometry ? "Modelo válido" : "Sin sólidos";
+  const exportStatusLabel = canExport
+    ? "Listo para exportar"
+    : "Exportación bloqueada";
   const volumeCm3 = useMemo(
     () => (isValid ? estimatedVolumeCm3(templateId, parameters, options) : 0),
     [isValid, templateId, parameters, options],
@@ -2877,6 +2883,11 @@ export default function Home() {
         </a>
         <nav className="top-actions" aria-label="Acciones del proyecto">
           <span className="version-pill"><i /> V1</span>
+          <div className="workflow-steps" aria-label="Flujo de creación">
+            <span className="active">Diseño</span>
+            <span className={showReview ? "active" : ""}>Comprobación</span>
+            <span className={canExport ? "active" : ""}>Exportación</span>
+          </div>
           <span className={`autosave-status ${autoSaveState}`} aria-live="polite">
             {autoSaveState === "saving" ? "Guardando…" : autoSaveState === "saved" ? "Guardado automático" : "Autoguardado"}
           </span>
@@ -2980,19 +2991,17 @@ export default function Home() {
               </button>
             </div>
           </details>
-          {canExport && (
-            <button
-              className={`button review-trigger ${showReview ? "active" : ""}`}
-              onClick={() => setShowReview((current) => !current)}
-              aria-expanded={showReview}
-              aria-controls="manufacturing-review"
-            >
-              <span className={isValid ? "ready" : "error"}>
-                {isValid ? "✓" : "!"}
-              </span>
-              Comprobar
-            </button>
-          )}
+          <button
+            className={`button review-trigger ${showReview ? "active" : ""}`}
+            onClick={() => setShowReview((current) => !current)}
+            aria-expanded={showReview}
+            aria-controls="manufacturing-review"
+          >
+            <span className={isValid ? "ready" : "error"}>
+              {isValid ? "✓" : "!"}
+            </span>
+            Comprobar
+          </button>
           <button
             className="button primary compact"
             onClick={() => void exportModel("stl")}
@@ -3510,7 +3519,7 @@ export default function Home() {
           ) : (
             <div className="project-overview">
               <div className="panel-heading">
-                <span className="eyebrow">01 · Proyecto</span>
+                <span className="eyebrow">Diseño · punto de partida</span>
                 <h1>{template.name}</h1>
                 <p>{template.description}</p>
               </div>
@@ -3570,7 +3579,7 @@ export default function Home() {
             }}
           >
             <summary>
-              <span><b>02</b> {templateId === "free" ? "Tamaño del lienzo" : "Medidas base"}</span>
+              <span><b>01</b> {templateId === "free" ? "Lienzo y medidas" : "Medidas de la pieza"}</span>
               <small>
                 {templateId === "free"
                   ? `${parameters.width} × ${parameters.depth}`
@@ -3659,7 +3668,7 @@ export default function Home() {
             }}
           >
             <summary>
-              <span><b>03</b> Forma y fabricación</span>
+              <span><b>02</b> Detalles de fabricación</span>
               <small>{featureSettings.cornerRadius} mm</small>
             </summary>
             {(
@@ -3810,7 +3819,7 @@ export default function Home() {
           {templateId !== "free" && (
           <details className="tool-section">
             <summary>
-              <span><b>04</b> Agujeros y recortes</span>
+              <span><b>03</b> Agujeros y recortes</span>
               <small>{holes.length}</small>
             </summary>
             {(templateId === "box" || templateId === "bracket") && (
@@ -3948,7 +3957,7 @@ export default function Home() {
             }}
           >
             <summary>
-              <span><b>{templateId === "free" ? "03" : "05"}</b> {
+              <span><b>{templateId === "free" ? "02" : "04"}</b> {
                 templateId === "free" ? "Herramientas" : "Figuras y texto"
               }</span>
               <small>{objects.length}</small>
@@ -4667,15 +4676,7 @@ export default function Home() {
                 : "Arrastrá para inspeccionar la pieza"}
             </span>
             <span>
-              {templateId === "free"
-                ? `${visibleObjects.filter(
-                    (object) => object.operation !== "hole",
-                  ).length} sólidos · ${
-                    visibleObjects.filter(
-                      (object) => object.operation === "hole",
-                    ).length
-                  } agujeros`
-                : `${holes.length} recortes · ${objects.length} objetos · escala real`}
+              {geometryStatusLabel} · {exportStatusLabel}
             </span>
           </div>
         </section>

@@ -1476,6 +1476,33 @@ button {
   gap: 10px;
 }
 
+.workflow-steps {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid rgba(124, 184, 214, 0.12);
+  border-radius: 999px;
+  background: rgba(2, 10, 15, 0.45);
+}
+
+.workflow-steps span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  color: #688797;
+  font-size: 10.5px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.workflow-steps span.active {
+  color: #d8f5ff;
+  background: rgba(36, 181, 245, 0.11);
+}
+
 .autosave-status {
   display: inline-flex;
   align-items: center;
@@ -5190,7 +5217,8 @@ input::-webkit-inner-spin-button {
   .brand-tagline,
   .save-trigger,
   .feedback-trigger,
-  .autosave-status {
+  .autosave-status,
+  .workflow-steps {
     display: none;
   }
 
@@ -5215,6 +5243,8 @@ input::-webkit-inner-spin-button {
   }
 
   .autosave-status { display: none; }
+
+  .workflow-steps { display: none; }
 
   .version-pill {
     display: none;
