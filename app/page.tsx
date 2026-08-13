@@ -366,10 +366,33 @@ const PRIMARY_MEASURE_KEYS: Record<TemplateId, string[]> = {
   free: ["width", "depth"],
 };
 
+const OBJECT_KIND_LABELS: Record<ObjectKind, string> = {
+  cube: "Caja",
+  cylinder: "Cilindro",
+  sphere: "Esfera",
+  cone: "Cono",
+  tube: "Tubo",
+  wedge: "Cuña",
+  text: "Texto",
+};
+
 function formatList(items: string[]) {
   if (items.length <= 1) return items[0] ?? "";
   if (items.length === 2) return `${items[0]} y ${items[1]}`;
   return `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`;
+}
+
+function objectKindDescription(object: CustomObject) {
+  if (object.operation === "hole") {
+    return "Este recorte quita material de los sólidos visibles.";
+  }
+  if (object.kind === "text") {
+    return "Ajustá el texto, su relieve y su ubicación dentro de la pieza.";
+  }
+  if (object.kind === "cylinder" || object.kind === "tube") {
+    return "Ajustá diámetro, altura y posición dentro de la pieza.";
+  }
+  return "Ajustá sus medidas y posición dentro de la pieza.";
 }
 
 function humanMeasureLabel(label: string) {
@@ -756,6 +779,45 @@ function PieceStatusPanel({
         </button>
       </div>
     </section>
+  );
+}
+
+function InspectorNumberField({
+  label,
+  value,
+  unit,
+  min,
+  max,
+  step,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  unit?: "mm" | "°";
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="inspector-number-field">
+      <span>{label}</span>
+      <span className="inspector-number-control">
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          onInput={(event) => onChange(Number(event.currentTarget.value))}
+          aria-label={unit ? `${label} en ${unit}` : label}
+        />
+        {unit && <em>{unit}</em>}
+      </span>
+    </label>
   );
 }
 
@@ -5022,101 +5084,32 @@ export default function Home() {
                 </div>
               ) : selectedObject ? (
                 <div className="free-inspector-content">
-                  <div className="inspector-object-state">
-                    <i
-                      className={
-                        selectedObject.operation === "hole"
-                          ? "hole-dot"
-                          : "solid-dot"
-                      }
-                    />
-                    <span>
-                      {selectedObject.operation === "hole" ? "Recorte" : "Sólido"}
-                      {selectedObject.hidden ? " · oculto" : ""}
-                    </span>
-                    <div>
-                      <button
-                        onClick={() =>
-                          toggleObjectState(selectedObject.id, "hidden")
+                  <section className="inspector-object-summary" aria-label="Objeto seleccionado">
+                    <div className="inspector-object-title">
+                      <i
+                        className={
+                          selectedObject.operation === "hole"
+                            ? "hole-dot"
+                            : "solid-dot"
                         }
-                      >
-                        {selectedObject.hidden ? "Mostrar" : "Ocultar"}
-                      </button>
-                      <button
-                        className={selectedObject.locked ? "active" : ""}
-                        onClick={() =>
-                          toggleObjectState(selectedObject.id, "locked")
-                        }
-                      >
-                        {selectedObject.locked ? "Desbloquear" : "Bloquear"}
-                      </button>
-                    </div>
-                  </div>
-
-                  <label className="inspector-name-field">
-                    <span>Nombre del objeto</span>
-                    <input
-                      type="text"
-                      value={selectedObject.name}
-                      maxLength={40}
-                      disabled={selectedObject.locked}
-                      onInput={(event) =>
-                        updateObject("name", event.currentTarget.value)
-                      }
-                    />
-                  </label>
-
-                  <label className="select-field compact-select operation-field">
-                    <span>
-                      <strong>Operación</strong>
-                      <small>Construye o recorta el resultado</small>
-                    </span>
-                    <select
-                      value={selectedObject.operation ?? "solid"}
-                      disabled={selectedObject.locked}
-                      onChange={(event) =>
-                        updateObject(
-                          "operation",
-                          event.target.value as ObjectOperation,
-                        )
-                      }
-                    >
-                      <option value="solid">Sólido</option>
-                      <option value="hole">Agujero</option>
-                    </select>
-                  </label>
-
-                  {selectedObject.kind === "text" && (
-                    <label className="text-property inspector-text-field">
-                      <span>Contenido</span>
-                      <input
-                        type="text"
-                        value={selectedObject.text ?? ""}
-                        maxLength={20}
-                        disabled={selectedObject.locked}
-                        onInput={(event) =>
-                          updateObject("text", event.currentTarget.value)
-                        }
+                        aria-hidden="true"
                       />
-                    </label>
-                  )}
-
-                  <div className="inspector-transform-tabs">
-                    {([
-                      ["translate", "Mover"],
-                      ["rotate", "Rotar"],
-                      ["scale", "Tamaño"],
-                    ] as const).map(([mode, label]) => (
-                      <button
-                        className={freeTransformMode === mode ? "active" : ""}
-                        onClick={() => setFreeTransformMode(mode)}
-                        disabled={selectedObject.locked}
-                        key={mode}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
+                      <div>
+                        <span>Objeto seleccionado</span>
+                        <h2>{selectedObject.name}</h2>
+                        <p>
+                          {OBJECT_KIND_LABELS[selectedObject.kind]} ·{" "}
+                          {selectedObject.operation === "hole" ? "Recorte" : "Sólido"}
+                        </p>
+                      </div>
+                    </div>
+                    <p>{objectKindDescription(selectedObject)}</p>
+                    <div className="inspector-state-chips" aria-label="Estado del objeto">
+                      {selectedObject.hidden && <span>Oculto</span>}
+                      {selectedObject.locked && <span>Bloqueado</span>}
+                      {!selectedObject.hidden && !selectedObject.locked && <span>Editable</span>}
+                    </div>
+                  </section>
 
                   {selectedObject.locked && (
                     <p className="inspector-lock-note">
@@ -5124,181 +5117,116 @@ export default function Home() {
                     </p>
                   )}
 
-                  <div className="mini-grid two inspector-grid">
-                    {freeTransformMode === "translate" && (
-                      <>
-                        <label>
-                          <span>Posición X</span>
-                          <input
-                            type="number"
-                            value={selectedObject.x}
-                            step="0.5"
-                            disabled={selectedObject.locked}
-                            onInput={(event) =>
-                              updateObject("x", Number(event.currentTarget.value))
-                            }
-                          />
-                        </label>
-                        <label>
-                          <span>Posición Z</span>
-                          <input
-                            type="number"
-                            value={selectedObject.z}
-                            step="0.5"
-                            disabled={selectedObject.locked}
-                            onInput={(event) =>
-                              updateObject("z", Number(event.currentTarget.value))
-                            }
-                          />
-                        </label>
-                        <label>
-                          <span>Altura Y</span>
-                          <input
-                            type="number"
-                            value={selectedObject.y}
-                            step="0.5"
-                            disabled={selectedObject.locked}
-                            onInput={(event) =>
-                              updateObject("y", Number(event.currentTarget.value))
-                            }
-                          />
-                        </label>
-                      </>
-                    )}
-                    {freeTransformMode === "scale" && (
-                      <>
-                        <label>
-                          <span>
-                            {selectedObject.kind === "text"
-                              ? "Tamaño"
-                              : selectedObject.kind === "tube"
-                                ? "Ø exterior"
-                                : selectedObject.kind === "cylinder" ||
-                                    selectedObject.kind === "cone" ||
-                                    selectedObject.kind === "sphere"
-                                  ? "Diámetro"
-                                  : "Ancho"}
-                          </span>
-                          <input
-                            type="number"
-                            value={selectedObject.width}
-                            min="1"
-                            step="0.5"
-                            disabled={selectedObject.locked}
-                            onInput={(event) =>
-                              updateObject(
-                                "width",
-                                Number(event.currentTarget.value),
-                              )
-                            }
-                          />
-                        </label>
-                        {(selectedObject.kind === "cube" ||
-                          selectedObject.kind === "wedge" ||
-                          selectedObject.kind === "tube") && (
-                          <label>
-                            <span>
-                              {selectedObject.kind === "tube"
-                                ? "Ø interior"
-                                : "Profundidad"}
-                            </span>
-                            <input
-                              type="number"
-                              value={selectedObject.depth}
-                              min={selectedObject.kind === "tube" ? 0.5 : 1}
-                              max={
-                                selectedObject.kind === "tube"
-                                  ? Math.max(0.5, selectedObject.width - 0.5)
-                                  : undefined
-                              }
-                              step="0.5"
-                              disabled={selectedObject.locked}
-                              onInput={(event) =>
-                                updateObject(
-                                  "depth",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                            />
-                          </label>
-                        )}
-                        {selectedObject.kind !== "sphere" && (
-                          <label>
-                            <span>
-                              {selectedObject.kind === "text"
-                                ? "Relieve"
-                                : "Altura"}
-                            </span>
-                            <input
-                              type="number"
-                              value={selectedObject.height}
-                              min="0.6"
-                              step="0.2"
-                              disabled={selectedObject.locked}
-                              onInput={(event) =>
-                                updateObject(
-                                  "height",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                            />
-                          </label>
-                        )}
-                      </>
-                    )}
-                    {freeTransformMode === "rotate" &&
-                      selectedObject.kind !== "sphere" && (
-                        <>
-                          <label>
-                            <span>Rotación X</span>
-                            <input
-                              type="number"
-                              value={selectedObject.rotationX ?? 0}
-                              step="5"
-                              disabled={selectedObject.locked}
-                              onInput={(event) =>
-                                updateObject(
-                                  "rotationX",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                            />
-                          </label>
-                          <label>
-                            <span>Rotación Y</span>
-                            <input
-                              type="number"
-                              value={selectedObject.rotation}
-                              step="5"
-                              disabled={selectedObject.locked}
-                              onInput={(event) =>
-                                updateObject(
-                                  "rotation",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                            />
-                          </label>
-                          <label>
-                            <span>Rotación Z</span>
-                            <input
-                              type="number"
-                              value={selectedObject.rotationZ ?? 0}
-                              step="5"
-                              disabled={selectedObject.locked}
-                              onInput={(event) =>
-                                updateObject(
-                                  "rotationZ",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                            />
-                          </label>
-                        </>
+                  <section className="inspector-section priority-section" aria-labelledby="inspector-size-title">
+                    <div className="inspector-section-heading">
+                      <div>
+                        <span>Medidas</span>
+                        <strong id="inspector-size-title">Tamaño del objeto</strong>
+                      </div>
+                      <button
+                        className={freeTransformMode === "scale" ? "active" : ""}
+                        onClick={() => setFreeTransformMode("scale")}
+                        disabled={selectedObject.locked}
+                      >
+                        Usar tamaño en visor
+                      </button>
+                    </div>
+                    <div className="inspector-field-grid">
+                      <InspectorNumberField
+                        label={
+                          selectedObject.kind === "text"
+                            ? "Tamaño"
+                            : selectedObject.kind === "tube"
+                              ? "Ø exterior"
+                              : selectedObject.kind === "cylinder" ||
+                                  selectedObject.kind === "cone" ||
+                                  selectedObject.kind === "sphere"
+                                ? "Diámetro"
+                                : "Ancho"
+                        }
+                        value={selectedObject.width}
+                        unit="mm"
+                        min="1"
+                        step="0.5"
+                        disabled={selectedObject.locked}
+                        onChange={(value) => updateObject("width", value)}
+                      />
+                      {(selectedObject.kind === "cube" ||
+                        selectedObject.kind === "wedge" ||
+                        selectedObject.kind === "tube") && (
+                        <InspectorNumberField
+                          label={
+                            selectedObject.kind === "tube"
+                              ? "Ø interior"
+                              : "Profundidad"
+                          }
+                          value={selectedObject.depth}
+                          unit="mm"
+                          min={selectedObject.kind === "tube" ? 0.5 : 1}
+                          max={
+                            selectedObject.kind === "tube"
+                              ? Math.max(0.5, selectedObject.width - 0.5)
+                              : undefined
+                          }
+                          step="0.5"
+                          disabled={selectedObject.locked}
+                          onChange={(value) => updateObject("depth", value)}
+                        />
                       )}
-                  </div>
+                      {selectedObject.kind !== "sphere" && (
+                        <InspectorNumberField
+                          label={selectedObject.kind === "text" ? "Relieve" : "Altura"}
+                          value={selectedObject.height}
+                          unit="mm"
+                          min="0.6"
+                          step="0.2"
+                          disabled={selectedObject.locked}
+                          onChange={(value) => updateObject("height", value)}
+                        />
+                      )}
+                    </div>
+                  </section>
 
-                  {freeTransformMode === "translate" && (
+                  <section className="inspector-section" aria-labelledby="inspector-position-title">
+                    <div className="inspector-section-heading">
+                      <div>
+                        <span>Posición</span>
+                        <strong id="inspector-position-title">Ubicación en la pieza</strong>
+                      </div>
+                      <button
+                        className={freeTransformMode === "translate" ? "active" : ""}
+                        onClick={() => setFreeTransformMode("translate")}
+                        disabled={selectedObject.locked}
+                      >
+                        Usar mover en visor
+                      </button>
+                    </div>
+                    <div className="inspector-field-grid">
+                      <InspectorNumberField
+                        label="X"
+                        value={selectedObject.x}
+                        unit="mm"
+                        step="0.5"
+                        disabled={selectedObject.locked}
+                        onChange={(value) => updateObject("x", value)}
+                      />
+                      <InspectorNumberField
+                        label="Y"
+                        value={selectedObject.y}
+                        unit="mm"
+                        step="0.5"
+                        disabled={selectedObject.locked}
+                        onChange={(value) => updateObject("y", value)}
+                      />
+                      <InspectorNumberField
+                        label="Z"
+                        value={selectedObject.z}
+                        unit="mm"
+                        step="0.5"
+                        disabled={selectedObject.locked}
+                        onChange={(value) => updateObject("z", value)}
+                      />
+                    </div>
                     <div className="free-quick-actions">
                       <button
                         disabled={selectedObject.locked}
@@ -5315,18 +5243,153 @@ export default function Home() {
                         Centrar X/Z
                       </button>
                     </div>
+                  </section>
+
+                  {selectedObject.kind !== "sphere" && (
+                    <details className="inspector-section inspector-details">
+                      <summary>
+                        <span>
+                          <small>Rotación</small>
+                          <strong>Giro por eje</strong>
+                        </span>
+                        <b>⌄</b>
+                      </summary>
+                      <div className="inspector-section-heading inline-heading">
+                        <span>Valores en grados</span>
+                        <button
+                          className={freeTransformMode === "rotate" ? "active" : ""}
+                          onClick={() => setFreeTransformMode("rotate")}
+                          disabled={selectedObject.locked}
+                        >
+                          Usar rotación en visor
+                        </button>
+                      </div>
+                      <div className="inspector-field-grid">
+                        <InspectorNumberField
+                          label="X"
+                          value={selectedObject.rotationX ?? 0}
+                          unit="°"
+                          step="5"
+                          disabled={selectedObject.locked}
+                          onChange={(value) => updateObject("rotationX", value)}
+                        />
+                        <InspectorNumberField
+                          label="Y"
+                          value={selectedObject.rotation}
+                          unit="°"
+                          step="5"
+                          disabled={selectedObject.locked}
+                          onChange={(value) => updateObject("rotation", value)}
+                        />
+                        <InspectorNumberField
+                          label="Z"
+                          value={selectedObject.rotationZ ?? 0}
+                          unit="°"
+                          step="5"
+                          disabled={selectedObject.locked}
+                          onChange={(value) => updateObject("rotationZ", value)}
+                        />
+                      </div>
+                    </details>
                   )}
 
-                  <div className="editor-actions">
-                    <button onClick={duplicateSelectedObject}>Duplicar</button>
+                  <details className="inspector-section inspector-details">
+                    <summary>
+                      <span>
+                        <small>Más opciones</small>
+                        <strong>Nombre y operación</strong>
+                      </span>
+                      <b>⌄</b>
+                    </summary>
+                    <label className="inspector-name-field">
+                      <span>Nombre</span>
+                      <input
+                        type="text"
+                        value={selectedObject.name}
+                        maxLength={40}
+                        disabled={selectedObject.locked}
+                        onInput={(event) =>
+                          updateObject("name", event.currentTarget.value)
+                        }
+                      />
+                    </label>
+
+                    <label className="select-field compact-select operation-field">
+                      <span>
+                        <strong>Tipo de objeto</strong>
+                        <small>Suma material o funciona como recorte</small>
+                      </span>
+                      <select
+                        value={selectedObject.operation ?? "solid"}
+                        disabled={selectedObject.locked}
+                        onChange={(event) =>
+                          updateObject(
+                            "operation",
+                            event.target.value as ObjectOperation,
+                          )
+                        }
+                      >
+                        <option value="solid">Sólido</option>
+                        <option value="hole">Recorte</option>
+                      </select>
+                    </label>
+
+                    {selectedObject.kind === "text" && (
+                      <label className="text-property inspector-text-field">
+                        <span>Contenido</span>
+                        <input
+                          type="text"
+                          value={selectedObject.text ?? ""}
+                          maxLength={20}
+                          disabled={selectedObject.locked}
+                          onInput={(event) =>
+                            updateObject("text", event.currentTarget.value)
+                          }
+                        />
+                      </label>
+                    )}
+                  </details>
+
+                  <section className="inspector-actions-panel" aria-label="Acciones del objeto">
+                    <div className="inspector-action-grid">
+                      <button onClick={duplicateSelectedObject}>Duplicar</button>
+                      <button
+                        onClick={() =>
+                          toggleObjectState(selectedObject.id, "hidden")
+                        }
+                      >
+                        {selectedObject.hidden ? "Mostrar" : "Ocultar"}
+                      </button>
+                      <button
+                        disabled={selectedObject.locked}
+                        onClick={() =>
+                          updateObject(
+                            "operation",
+                            selectedObject.operation === "hole" ? "solid" : "hole",
+                          )
+                        }
+                      >
+                        {selectedObject.operation === "hole"
+                          ? "Convertir en sólido"
+                          : "Convertir en recorte"}
+                      </button>
+                      <button
+                        className={selectedObject.locked ? "active" : ""}
+                        onClick={() =>
+                          toggleObjectState(selectedObject.id, "locked")
+                        }
+                      >
+                        {selectedObject.locked ? "Desbloquear" : "Bloquear"}
+                      </button>
+                    </div>
                     <button
-                      className="danger-action"
+                      className="danger-action inspector-delete-action"
                       onClick={deleteSelectedObject}
                       disabled={selectedObject.locked}
                     >
                       Eliminar
                     </button>
-                  </div>
+                  </section>
                 </div>
               ) : (
                 <div className="inspector-empty-state">
