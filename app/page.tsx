@@ -40,6 +40,7 @@ import type {
   ModelParameters,
   ObjectKind,
   ObjectOperation,
+  ParameterDefinition,
   TemplateId,
 } from "../lib/models";
 import {
@@ -358,6 +359,122 @@ const TUTORIAL_STEPS: TutorialStep[] = [
   },
 ];
 
+const PRIMARY_MEASURE_KEYS: Record<TemplateId, string[]> = {
+  box: ["width", "depth", "height", "wall"],
+  bracket: ["width", "height", "thickness", "depth"],
+  plate: ["width", "depth", "thickness"],
+  free: ["width", "depth"],
+};
+
+function formatList(items: string[]) {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} y ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} y ${items.at(-1)}`;
+}
+
+function humanMeasureLabel(label: string) {
+  return label
+    .replace(" exterior", "")
+    .replace(" vertical", "")
+    .toLocaleLowerCase("es-AR");
+}
+
+function pieceContextDescription(
+  templateId: TemplateId,
+  fields: ParameterDefinition[],
+) {
+  if (templateId === "free") {
+    return "Combiná formas y recortes para construir tu pieza.";
+  }
+  const primaryLabels = PRIMARY_MEASURE_KEYS[templateId]
+    .map((key) => fields.find((field) => field.key === key)?.label)
+    .filter((label): label is string => Boolean(label))
+    .map(humanMeasureLabel)
+    .slice(0, 4);
+  return `Ajustá ${formatList(primaryLabels)}. Después comprobá el modelo antes de exportarlo.`;
+}
+
+function describeValidationIssue(
+  message: string,
+  severity: "error" | "warning",
+) {
+  const recorte = message.match(/recorte\s+(\d+)/i)?.[1];
+  const figura = message.match(/figura\s+(\d+)/i)?.[1];
+  const tubo = message.match(/tubo\s+(\d+)/i)?.[1];
+
+  if (recorte) {
+    return {
+      title: `Recorte ${recorte}`,
+      detail: message,
+      action: "Movelo hacia adentro de la cara o reducí su medida.",
+    };
+  }
+  if (figura) {
+    return {
+      title: `Figura ${figura}`,
+      detail: message,
+      action: "Seleccioná la figura y corregí sus medidas o posición.",
+    };
+  }
+  if (tubo) {
+    return {
+      title: `Tubo ${tubo}`,
+      detail: message,
+      action: "Reducí el diámetro interior o aumentá el exterior.",
+    };
+  }
+  if (message.includes("mayores que cero")) {
+    return {
+      title: "Medidas de la pieza",
+      detail: message,
+      action: "Revisá los campos de medidas y usá valores mayores que 0 mm.",
+    };
+  }
+  if (message.includes("espesor ocupa")) {
+    return {
+      title: "Espesor de pared",
+      detail: message,
+      action: "Bajá el espesor o aumentá ancho/profundidad.",
+    };
+  }
+  if (message.includes("base debe")) {
+    return {
+      title: "Base de la caja",
+      detail: message,
+      action: "Reducí el espesor de base o aumentá la altura.",
+    };
+  }
+  if (message.includes("dos alas")) {
+    return {
+      title: "Espesor del soporte",
+      detail: message,
+      action: "Reducí el espesor o aumentá las alas del soporte.",
+    };
+  }
+  if (message.includes("sólido")) {
+    return {
+      title: "Diseño libre",
+      detail: message,
+      action: "Agregá un sólido y después usá recortes si los necesitás.",
+    };
+  }
+  if (message.includes("soporte debe")) {
+    return {
+      title: "Soporte interno",
+      detail: message,
+      action: "Hacé el agujero más chico que el diámetro exterior.",
+    };
+  }
+  return {
+    title: severity === "error" ? "Revisar modelo" : "Advertencia",
+    detail: message,
+    action:
+      severity === "error"
+        ? "Corregí este punto antes de exportar."
+        : "Podés exportar, pero conviene revisar esta medida.",
+  };
+}
+
 function cloneHoleMap(source: Record<TemplateId, Cutout[]>) {
   return Object.fromEntries(
     Object.entries(source).map(([key, holes]) => [
@@ -562,6 +679,83 @@ function MovePad({
         <button disabled={!selected} onClick={() => onMoveBy(0, -step)} aria-label="Mover hacia abajo">↓</button>
       </div>
     </div>
+  );
+}
+
+function ParameterField({
+  field,
+  value,
+  featured = false,
+  onChange,
+}: {
+  field: ParameterDefinition;
+  value: number;
+  featured?: boolean;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className={`field ${featured ? "primary-measure" : ""}`}>
+      <span>
+        <strong>{field.label}</strong>
+        <small>{field.hint}</small>
+      </span>
+      <span className="number-control">
+        <input
+          type="number"
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          value={value}
+          onInput={(event) => onChange(event.currentTarget.value)}
+          aria-label={`${field.label} en milímetros`}
+        />
+        <em>mm</em>
+      </span>
+    </label>
+  );
+}
+
+function PieceStatusPanel({
+  statusLabel,
+  statusTone,
+  detail,
+  nextStep,
+  errorCount,
+  warningCount,
+  actionLabel,
+  actionDisabled = false,
+  onAction,
+}: {
+  statusLabel: string;
+  statusTone: "ready" | "error" | "idle";
+  detail: string;
+  nextStep: string;
+  errorCount: number;
+  warningCount: number;
+  actionLabel: string;
+  actionDisabled?: boolean;
+  onAction: () => void;
+}) {
+  return (
+    <section className={`piece-status-panel ${statusTone}`} aria-label="Estado de la pieza">
+      <div className="piece-status-main">
+        <span aria-hidden="true">{statusTone === "ready" ? "✓" : statusTone === "error" ? "!" : "+"}</span>
+        <div>
+          <strong>{statusLabel}</strong>
+          <small>{detail}</small>
+        </div>
+      </div>
+      <div className="piece-status-meta" aria-label="Problemas detectados">
+        <span>{errorCount} errores</span>
+        <span>{warningCount} advertencias</span>
+      </div>
+      <div className="piece-next-step">
+        <span>{nextStep}</span>
+        <button type="button" onClick={onAction} disabled={actionDisabled}>
+          {actionLabel}
+        </button>
+      </div>
+    </section>
   );
 }
 
@@ -1620,6 +1814,45 @@ export default function Home() {
   const exportStatusLabel = canExport
     ? "Listo para exportar"
     : "Exportación bloqueada";
+  const statusTone: "ready" | "error" | "idle" = !isValid
+    ? "error"
+    : canExport ? "ready" : "idle";
+  const statusDetail = !hasPrintableGeometry
+    ? "Agregá al menos un sólido para poder exportar."
+    : !isValid
+      ? `${validation.errors.length} ${validation.errors.length === 1 ? "error bloquea" : "errores bloquean"} la exportación.`
+      : validation.warnings.length > 0
+        ? `${validation.warnings.length} ${validation.warnings.length === 1 ? "advertencia para revisar" : "advertencias para revisar"}.`
+        : "La pieza no tiene errores detectados.";
+  const nextStepLabel = !hasPrintableGeometry
+    ? "Próximo paso: agregá un sólido."
+    : !isValid
+      ? "Próximo paso: corregí los problemas marcados."
+      : showReview
+        ? "Listo para exportar STL."
+        : "Próximo paso: comprobar modelo.";
+  const statusActionLabel = !hasPrintableGeometry
+    ? "Agregar figura"
+    : !isValid || !showReview
+      ? "Comprobar"
+      : "Descargar STL";
+  const primaryMeasureKeys = new Set(PRIMARY_MEASURE_KEYS[templateId]);
+  const primaryFields = template.fields.filter((field) =>
+    primaryMeasureKeys.has(field.key),
+  );
+  const secondaryFields = template.fields.filter(
+    (field) => !primaryMeasureKeys.has(field.key),
+  );
+  const validationIssues = [
+    ...validation.errors.map((message) => ({
+      severity: "error" as const,
+      ...describeValidationIssue(message, "error"),
+    })),
+    ...validation.warnings.map((message) => ({
+      severity: "warning" as const,
+      ...describeValidationIssue(message, "warning"),
+    })),
+  ];
   const volumeCm3 = useMemo(
     () => (isValid ? estimatedVolumeCm3(templateId, parameters, options) : 0),
     [isValid, templateId, parameters, options],
@@ -2858,6 +3091,19 @@ export default function Home() {
     }
   };
 
+  const handleStatusAction = () => {
+    if (!hasPrintableGeometry) {
+      setShowReview(false);
+      setFreeEditorView("create");
+      return;
+    }
+    if (!isValid || !showReview) {
+      setShowReview(true);
+      return;
+    }
+    void exportModel("stl");
+  };
+
   const currentTutorialStep = TUTORIAL_STEPS[tutorialStep];
   const tutorialProgress = ((tutorialStep + 1) / TUTORIAL_STEPS.length) * 100;
 
@@ -3519,9 +3765,9 @@ export default function Home() {
           ) : (
             <div className="project-overview">
               <div className="panel-heading">
-                <span className="eyebrow">Diseño · punto de partida</span>
-                <h1>{template.name}</h1>
-                <p>{template.description}</p>
+                <span className="eyebrow">Proyecto</span>
+                <h1>Archivo y plantilla</h1>
+                <p>Nombrá la pieza y cambiá el punto de partida si lo necesitás.</p>
               </div>
 
               <label className="project-name-field">
@@ -3565,6 +3811,27 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          <section className="piece-context-panel" aria-labelledby="piece-context-title">
+            <span className="eyebrow">Diseño</span>
+            <small>Estás editando</small>
+            <h2 id="piece-context-title">
+              {templateId === "free" ? "Diseño libre" : template.name}
+            </h2>
+            <p>{pieceContextDescription(templateId, template.fields)}</p>
+          </section>
+
+          <PieceStatusPanel
+            statusLabel={geometryStatusLabel}
+            statusTone={statusTone}
+            detail={statusDetail}
+            nextStep={nextStepLabel}
+            errorCount={validation.errors.length}
+            warningCount={validation.warnings.length}
+            actionLabel={statusActionLabel}
+            actionDisabled={Boolean(exporting)}
+            onAction={handleStatusAction}
+          />
 
           <details
             className="tool-section"
@@ -3615,30 +3882,38 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <div className="fields">
-              {template.fields.map((field) => (
-                <label className="field" key={`${templateId}-${field.key}`}>
-                  <span>
-                    <strong>{field.label}</strong>
-                    <small>{field.hint}</small>
-                  </span>
-                  <span className="number-control">
-                    <input
-                      type="number"
-                      min={field.min}
-                      max={field.max}
-                      step={field.step}
-                      value={parameters[field.key]}
-                      onInput={(event) =>
-                        updateParameter(field.key, event.currentTarget.value)
-                      }
-                      aria-label={`${field.label} en milímetros`}
-                    />
-                    <em>mm</em>
-                  </span>
-                </label>
-              ))}
+            <div className="primary-measure-block">
+              <div className="measure-block-heading">
+                <strong>Medidas principales</strong>
+                <small>Lo mínimo para ajustar la pieza rápido.</small>
+              </div>
+              <div className="fields primary-fields">
+                {primaryFields.map((field) => (
+                  <ParameterField
+                    field={field}
+                    value={parameters[field.key]}
+                    featured
+                    onChange={(value) => updateParameter(field.key, value)}
+                    key={`${templateId}-${field.key}`}
+                  />
+                ))}
+              </div>
             </div>
+            {secondaryFields.length > 0 && (
+              <details className="secondary-measures">
+                <summary>Más medidas</summary>
+                <div className="fields">
+                  {secondaryFields.map((field) => (
+                    <ParameterField
+                      field={field}
+                      value={parameters[field.key]}
+                      onChange={(value) => updateParameter(field.key, value)}
+                      key={`${templateId}-${field.key}`}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
             {templateId !== "free" && (
               <button
                 className="edit-in-free-action"
@@ -3983,9 +4258,11 @@ export default function Home() {
                           : setFreeEditorView(view)
                       }
                       disabled={view === "objects" && objects.length === 0}
+                      aria-label={`${label}${view === "objects" ? `, ${objects.length} objetos` : ""}`}
                       aria-pressed={
                         view === "designs" ? showDesignGallery : freeEditorView === view
                       }
+                      title={label}
                     >
                       <i>{icon}</i>
                       <span>{label}</span>
@@ -4186,7 +4463,9 @@ export default function Home() {
                       <div
                         className={`free-layer-row ${
                           selectedObjectIds.includes(object.id) ? "active" : ""
-                        } ${object.hidden ? "is-hidden" : ""}`}
+                        } ${object.hidden ? "is-hidden" : ""} ${
+                          object.operation === "hole" ? "is-hole" : "is-solid"
+                        }`}
                         key={object.id}
                       >
                         <button
@@ -4232,7 +4511,7 @@ export default function Home() {
                             onClick={() => moveObjectInStack(object.id, "up")}
                             disabled={index === 0}
                             title="Subir capa"
-                            aria-label="Subir capa"
+                            aria-label={`Subir ${object.name}`}
                           >
                             ↑
                           </button>
@@ -4240,7 +4519,7 @@ export default function Home() {
                             onClick={() => moveObjectInStack(object.id, "down")}
                             disabled={index === objects.length - 1}
                             title="Bajar capa"
-                            aria-label="Bajar capa"
+                            aria-label={`Bajar ${object.name}`}
                           >
                             ↓
                           </button>
@@ -5065,7 +5344,7 @@ export default function Home() {
                 <span>{canExport ? "✓" : "+"}</span>
                 <div>
                   <strong>
-                    {canExport ? "Modelo exportable" : "Agregá un sólido visible"}
+                    {canExport ? "Listo para exportar" : "Agregá un sólido visible"}
                   </strong>
                   <small>{volumeCm3.toFixed(1)} cm³ aproximados</small>
                 </div>
@@ -5083,8 +5362,9 @@ export default function Home() {
           </button>
           <section className="manufacturing-summary" aria-label="Resumen de fabricación">
           <div className="panel-heading compact-heading">
-            <span className="eyebrow">Comprobación final</span>
-            <h2>Lista para exportar</h2>
+            <span className="eyebrow">Comprobación</span>
+            <h2>{canExport ? "Listo para exportar" : "No se puede exportar todavía"}</h2>
+            <p>{nextStepLabel}</p>
           </div>
 
           <div className={`status-card ${
@@ -5097,13 +5377,13 @@ export default function Home() {
               <strong>
                 {!isValid
                   ? "Necesita corrección"
-                  : hasPrintableGeometry ? "Geometría válida" : "Lienzo vacío"}
+                  : hasPrintableGeometry ? "Modelo válido" : "Lienzo vacío"}
               </strong>
               <p>
                 {!isValid
-                  ? "Hay medidas u operaciones incompatibles."
+                  ? "No se puede exportar hasta corregir los errores."
                   : hasPrintableGeometry
-                    ? "La pieza y sus elementos se pueden exportar."
+                    ? "La pieza se puede exportar como STL."
                     : "Agregá un sólido para comenzar a diseñar."}
               </p>
             </div>
@@ -5143,16 +5423,40 @@ export default function Home() {
             <p>
               {exporting
                 ? `Generando ${exporting.toUpperCase()}…`
-                : "Los archivos se generan localmente en tu navegador."}
+                : "STL es el archivo principal para abrir en tu laminador."}
             </p>
           </div>
 
-          {validation.errors.map((error) => (
-            <div className="notice error" key={error}><span>!</span><p>{error}</p></div>
-          ))}
-          {validation.warnings.map((warning) => (
-            <div className="notice warning" key={warning}><span>!</span><p>{warning}</p></div>
-          ))}
+          <div className="checklist-panel" aria-label="Problemas y advertencias">
+            <div className="checklist-heading">
+              <strong>Qué revisar</strong>
+              <span>
+                {validation.errors.length} errores · {validation.warnings.length} advertencias
+              </span>
+            </div>
+            {validationIssues.length > 0 ? (
+              <div className="checklist-items">
+                {validationIssues.map((issue) => (
+                  <article className={`checklist-item ${issue.severity}`} key={`${issue.severity}-${issue.detail}`}>
+                    <span aria-hidden="true">{issue.severity === "error" ? "!" : "i"}</span>
+                    <div>
+                      <strong>{issue.title}</strong>
+                      <p>{issue.detail}</p>
+                      <small>{issue.action}</small>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="checklist-empty">
+                <span aria-hidden="true">✓</span>
+                <div>
+                  <strong>No hay errores detectados</strong>
+                  <p>Podés descargar el STL o seguir ajustando la pieza.</p>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="spec-list">
             <div><span>{primarySpec.label}</span><strong>{primarySpec.value}</strong></div>
