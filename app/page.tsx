@@ -69,7 +69,7 @@ import type {
 } from "../lib/shape-library";
 
 type CameraView = "iso" | "x" | "y" | "z";
-type TransformMode = "translate" | "rotate" | "scale";
+type TransformMode = "select" | "translate" | "rotate" | "scale";
 type FreeEditorView = "create" | "designs" | "objects";
 const GCODE_GENERATION_ENABLED = false;
 type ObjectHistory = {
@@ -133,6 +133,10 @@ type PreviewRuntime = {
     geometry: ThreeTypes.EdgesGeometry;
     material: ThreeTypes.LineBasicMaterial;
   }>;
+  highlightMaterials: {
+    solid: ThreeTypes.MeshBasicMaterial;
+    hole: ThreeTypes.MeshBasicMaterial;
+  };
   center: ThreeTypes.Vector3;
   maxDimension: number;
   currentTemplate: TemplateId | null;
@@ -1268,11 +1272,18 @@ function ModelPreview({
         snapEnabledRef.current ? snapSizeRef.current : null,
       );
       transformControls.setRotationSnap(THREE.MathUtils.degToRad(5));
+      transformControls.setScaleSnap(0.1);
       scene.add(transformControls.getHelper());
       const render = () => renderer.render(scene, camera);
       controls.addEventListener("change", render);
       transformControls.addEventListener("change", render);
       let lastTransformRelease = 0;
+      let pointerDown:
+        | {
+            x: number;
+            y: number;
+          }
+        | null = null;
       const handleDraggingChanged = (event: { value: unknown }) => {
         controls.enabled = !Boolean(event.value);
       };
@@ -1329,6 +1340,9 @@ function ModelPreview({
 
       const raycaster = new THREE.Raycaster();
       const pointer = new THREE.Vector2();
+      const handlePointerDown = (event: PointerEvent) => {
+        pointerDown = { x: event.clientX, y: event.clientY };
+      };
       const selectFromCanvas = (event: PointerEvent) => {
         const runtime = runtimeRef.current;
         if (
@@ -1339,6 +1353,14 @@ function ModelPreview({
         ) {
           return;
         }
+        const pointerTravel = pointerDown
+          ? Math.hypot(
+              event.clientX - pointerDown.x,
+              event.clientY - pointerDown.y,
+            )
+          : 0;
+        pointerDown = null;
+        if (pointerTravel > 5) return;
         const bounds = renderer.domElement.getBoundingClientRect();
         pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
         pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
@@ -1350,6 +1372,7 @@ function ModelPreview({
           event.shiftKey || event.ctrlKey || event.metaKey,
         );
       };
+      renderer.domElement.addEventListener("pointerdown", handlePointerDown);
       renderer.domElement.addEventListener("pointerup", selectFromCanvas);
 
       const resize = () => {
@@ -1381,6 +1404,22 @@ function ModelPreview({
         selectableMeshes: [],
         geometries: [],
         edgeResources: [],
+        highlightMaterials: {
+          solid: new THREE.MeshBasicMaterial({
+            color: 0x7ee7ff,
+            transparent: true,
+            opacity: 0.14,
+            depthWrite: false,
+            side: THREE.BackSide,
+          }),
+          hole: new THREE.MeshBasicMaterial({
+            color: 0xff8ea4,
+            transparent: true,
+            opacity: 0.18,
+            depthWrite: false,
+            side: THREE.BackSide,
+          }),
+        },
         center: new THREE.Vector3(0, 15, 0),
         maxDimension: 80,
         currentTemplate: null,
@@ -1392,6 +1431,7 @@ function ModelPreview({
       return () => {
         observer.disconnect();
         renderer.domElement.removeEventListener("webglcontextlost", handleContextLost);
+        renderer.domElement.removeEventListener("pointerdown", handlePointerDown);
         renderer.domElement.removeEventListener("pointerup", selectFromCanvas);
         controls.removeEventListener("change", render);
         transformControls.removeEventListener("change", render);
@@ -1424,6 +1464,8 @@ function ModelPreview({
       runtime.material.dispose();
       runtime.accentMaterial.dispose();
       runtime.holeMaterial.dispose();
+      runtime.highlightMaterials.solid.dispose();
+      runtime.highlightMaterials.hole.dispose();
       runtime.transformControls.detach();
       runtime.transformControls.dispose();
       runtime.transformControls.getHelper().removeFromParent();
@@ -1486,6 +1528,15 @@ function ModelPreview({
         const edges = new runtime.THREE.LineSegments(edgeGeometry, edgeMaterial);
         if (isFreeObject && object) {
           const root = new runtime.THREE.Group();
+          const selectionOverlay = new runtime.THREE.Mesh(
+            geometry,
+            object.operation === "hole"
+              ? runtime.highlightMaterials.hole
+              : runtime.highlightMaterials.solid,
+          );
+          selectionOverlay.visible = isSelected;
+          selectionOverlay.scale.setScalar(1.025);
+          selectionOverlay.renderOrder = 2;
           root.position.set(object.x, object.y, object.z);
           root.rotation.set(
             runtime.THREE.MathUtils.degToRad(object.rotationX ?? 0),
@@ -1496,8 +1547,9 @@ function ModelPreview({
           root.userData.forjaObjectId = object.id;
           root.userData.forjaEdgeMaterial = edgeMaterial;
           root.userData.forjaEdgeBaseColor = edgeBaseColor;
+          root.userData.forjaSelectionOverlay = selectionOverlay;
           mesh.userData.forjaObjectId = object.id;
-          root.add(mesh, edges);
+          root.add(mesh, edges, selectionOverlay);
           runtime.objectRoots.set(object.id, root);
           runtime.selectableMeshes.push(mesh);
           nextChildren.push(root);
@@ -1546,9 +1598,19 @@ function ModelPreview({
           : undefined;
       const selectedRootObject = selectedRoot?.userData
         .forjaObject as CustomObject | undefined;
-      if (selectedRoot && !selectedRootObject?.locked) {
+      const activeTransformMode =
+        transformModeRef.current && transformModeRef.current !== "select"
+          ? transformModeRef.current
+          : "translate";
+      if (
+        selectedRoot &&
+        !selectedRootObject?.locked &&
+        transformModeRef.current !== "select"
+      ) {
         runtime.transformControls.attach(selectedRoot);
-        runtime.transformControls.setMode(transformModeRef.current ?? "translate");
+        runtime.transformControls.setMode(activeTransformMode);
+      } else {
+        runtime.transformControls.detach();
       }
       runtime.render();
       setIsPreparing(false);
@@ -1578,7 +1640,9 @@ function ModelPreview({
   useEffect(() => {
     const runtime = runtimeRef.current;
     if (!runtime || !runtimeReady) return;
-    runtime.transformControls.setMode(transformMode ?? "translate");
+    if (transformMode && transformMode !== "select") {
+      runtime.transformControls.setMode(transformMode);
+    }
     runtime.transformControls.setTranslationSnap(snapEnabled ? snapSize : null);
     const selectedSet = new Set(selectedObjectIds);
     runtime.objectRoots.forEach((root, id) => {
@@ -1592,6 +1656,11 @@ function ModelPreview({
           : (root.userData.forjaEdgeBaseColor as number | undefined) ?? 0xdaf6ff,
       );
       edgeMaterial.opacity = isSelected ? 0.95 : 0.42;
+      const selectionOverlay = root.userData
+        .forjaSelectionOverlay as ThreeTypes.Mesh | undefined;
+      if (selectionOverlay) {
+        selectionOverlay.visible = isSelected;
+      }
     });
     const selectedRoot =
       templateId === "free" && selectedObjectId
@@ -1599,7 +1668,11 @@ function ModelPreview({
         : undefined;
     const selectedRootObject = selectedRoot?.userData
       .forjaObject as CustomObject | undefined;
-    if (selectedRoot && !selectedRootObject?.locked) {
+    if (
+      selectedRoot &&
+      !selectedRootObject?.locked &&
+      transformMode !== "select"
+    ) {
       runtime.transformControls.attach(selectedRoot);
     } else {
       runtime.transformControls.detach();
@@ -1625,7 +1698,9 @@ function ModelPreview({
   return (
     <div
       ref={hostRef}
-      className="model-canvas"
+      className={`model-canvas ${
+        templateId === "free" ? `is-tool-${transformMode ?? "select"}` : ""
+      }`}
       aria-label="Vista previa tridimensional de la pieza"
     >
       {webglUnavailable && (
@@ -1679,7 +1754,7 @@ export default function Home() {
   const [cutoutFace, setCutoutFace] = useState<Cutout["face"]>("base");
   const [cutoutTool, setCutoutTool] = useState<Cutout["kind"] | null>(null);
   const [freeTransformMode, setFreeTransformMode] =
-    useState<TransformMode>("translate");
+    useState<TransformMode>("select");
   const [freeEditorView, setFreeEditorView] =
     useState<FreeEditorView>("create");
   const [freeAddOperation, setFreeAddOperation] =
@@ -2419,7 +2494,12 @@ export default function Home() {
   };
 
   const selectFreeObject = (id: string | null, additive = false) => {
-    if (!id) return;
+    if (!id) {
+      if (additive) return;
+      setSelectedObjectIds([]);
+      setSelectedObjectId(null);
+      return;
+    }
     if (additive) {
       const nextSelection = selectedObjectIds.includes(id)
         ? selectedObjectIds.filter((selectedId) => selectedId !== id)
@@ -4654,21 +4734,27 @@ export default function Home() {
                     {templateId === "free" && (
                       <div className="property-group-label">
                         <span>
-                          {freeTransformMode === "translate"
+                          {freeTransformMode === "select"
+                            ? "Propiedades"
+                            : freeTransformMode === "translate"
                             ? "Posición"
                             : freeTransformMode === "rotate"
                             ? "Rotación"
                             : "Tamaño"}
                         </span>
                         <small>
-                          {freeTransformMode === "scale"
+                          {freeTransformMode === "select"
+                            ? "Seleccioná una herramienta o editá valores"
+                            : freeTransformMode === "scale"
                             ? "Medidas finales"
                             : "Ejes X · Y · Z"}
                         </small>
                       </div>
                     )}
                     <div className="mini-grid two">
-                      {(templateId !== "free" || freeTransformMode === "translate") && (
+                      {(templateId !== "free" ||
+                        freeTransformMode === "select" ||
+                        freeTransformMode === "translate") && (
                         <>
                       <label>
                         <span>Posición X</span>
@@ -4708,7 +4794,9 @@ export default function Home() {
                       </label>
                         </>
                       )}
-                      {(templateId !== "free" || freeTransformMode === "scale") && (
+                      {(templateId !== "free" ||
+                        freeTransformMode === "select" ||
+                        freeTransformMode === "scale") && (
                         <>
                       <label>
                         <span>
@@ -4778,7 +4866,9 @@ export default function Home() {
                       )}
                         </>
                       )}
-                      {(templateId !== "free" || freeTransformMode === "rotate") && (
+                      {(templateId !== "free" ||
+                        freeTransformMode === "select" ||
+                        freeTransformMode === "rotate") && (
                         <>
                       {selectedObject.kind !== "sphere" && (
                         <label>
@@ -4834,7 +4924,9 @@ export default function Home() {
                         </>
                       )}
                     </div>
-                    {templateId === "free" && freeTransformMode === "translate" && (
+                    {templateId === "free" &&
+                      (freeTransformMode === "select" ||
+                        freeTransformMode === "translate") && (
                       <div className="free-quick-actions">
                         <button onClick={() => updateObject("y", 0)}>Apoyar en piso</button>
                         <button
@@ -4907,27 +4999,45 @@ export default function Home() {
                   ? `${selectedObjectIds.length} objetos seleccionados`
                   : selectedObject
                   ? `${selectedObject.operation === "hole" ? "Agujero" : "Sólido"} · ${selectedObject.name}`
-                  : "Hacé clic sobre una figura para seleccionarla"}
+                  : freeTransformMode === "select"
+                  ? "Hacé clic sobre una figura para seleccionarla"
+                  : "Elegí una figura para usar la herramienta activa"}
               </span>
-              <div>
+              <div className="free-canvas-tools" role="toolbar" aria-label="Herramientas del visor 3D">
+                <button
+                  className={freeTransformMode === "select" ? "active" : ""}
+                  onClick={() => setFreeTransformMode("select")}
+                  aria-pressed={freeTransformMode === "select"}
+                  title="Seleccionar"
+                >
+                  Seleccionar
+                </button>
                 <button
                   className={freeTransformMode === "translate" ? "active" : ""}
                   onClick={() => setFreeTransformMode("translate")}
+                  aria-pressed={freeTransformMode === "translate"}
+                  title="Mover"
                 >
                   Mover
                 </button>
                 <button
                   className={freeTransformMode === "rotate" ? "active" : ""}
                   onClick={() => setFreeTransformMode("rotate")}
+                  aria-pressed={freeTransformMode === "rotate"}
+                  title="Rotar"
                 >
                   Rotar
                 </button>
                 <button
                   className={freeTransformMode === "scale" ? "active" : ""}
                   onClick={() => setFreeTransformMode("scale")}
+                  aria-pressed={freeTransformMode === "scale"}
+                  title="Escalar"
                 >
                   Escalar
                 </button>
+              </div>
+              <div className="free-canvas-snap">
                 <span className="toolbar-separator" />
                 <button
                   className={snapEnabled ? "active snap-button" : "snap-button"}
@@ -5013,7 +5123,9 @@ export default function Home() {
           <div className="viewport-footer">
             <span>
               {templateId === "free"
-                ? "Clic: seleccionar · Arrastrar fondo: girar"
+                ? freeTransformMode === "select"
+                  ? "Clic: seleccionar · Arrastrar fondo: girar"
+                  : "Arrastrá el gizmo · Arrastrar fondo: girar"
                 : "Arrastrá para inspeccionar la pieza"}
             </span>
             <span>

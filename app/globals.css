@@ -3892,13 +3892,13 @@ input::-webkit-inner-spin-button {
   z-index: 7;
   top: 56px;
   left: 50%;
-  width: min(720px, calc(100% - 40px));
-  min-height: 42px;
+  width: min(760px, calc(100% - 40px));
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 5px 6px 5px 13px;
+  padding: 6px;
   border: 1px solid rgba(124, 184, 214, 0.18);
   border-radius: 10px;
   background: rgba(5, 15, 22, 0.88);
@@ -3924,6 +3924,14 @@ input::-webkit-inner-spin-button {
   gap: 4px;
 }
 
+.free-canvas-tools,
+.free-canvas-snap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .free-canvas-toolbar button {
   min-height: 30px;
   padding: 0 9px;
@@ -3934,6 +3942,7 @@ input::-webkit-inner-spin-button {
   cursor: pointer;
   font-size: 10.5px;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .free-canvas-toolbar button.active {
@@ -3993,6 +4002,16 @@ input::-webkit-inner-spin-button {
 
 .model-canvas canvas:active {
   cursor: grabbing;
+}
+
+.model-canvas.is-tool-select canvas {
+  cursor: default;
+}
+
+.model-canvas.is-tool-translate canvas,
+.model-canvas.is-tool-rotate canvas,
+.model-canvas.is-tool-scale canvas {
+  cursor: crosshair;
 }
 
 .preview-loading {
@@ -5950,15 +5969,22 @@ input::-webkit-inner-spin-button {
 
   .free-canvas-toolbar {
     width: calc(100% - 24px);
-    padding-left: 6px;
+    gap: 6px;
   }
 
   .free-canvas-toolbar > span {
     display: none;
   }
 
-  .free-canvas-toolbar > div {
+  .free-canvas-toolbar > div,
+  .free-canvas-tools,
+  .free-canvas-snap {
     width: 100%;
+    justify-content: center;
+  }
+
+  .free-canvas-toolbar {
+    flex-wrap: wrap;
     justify-content: center;
   }
 }
@@ -6001,6 +6027,14 @@ input::-webkit-inner-spin-button {
 
   .free-canvas-toolbar select {
     max-width: 68px;
+  }
+
+  .free-canvas-tools {
+    flex-wrap: wrap;
+  }
+
+  .free-canvas-snap .toolbar-separator {
+    display: none;
   }
 }
 
