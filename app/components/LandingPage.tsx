@@ -154,8 +154,8 @@ export default function LandingPage({
             </span>
             <h1 id="creation-title">¿Qué querés crear?</h1>
             <p>
-              Elegí un punto de partida. Después vas a poder ajustar medidas,
-              formas y detalles.
+              Elegí cómo empezar. La opción recomendada es usar una plantilla y
+              ajustar sus medidas.
             </p>
           </div>
 
@@ -164,7 +164,7 @@ export default function LandingPage({
               <span className="creation-choice-icon" aria-hidden="true">▣</span>
               <span>
                 <strong>Crear desde una plantilla</strong>
-                <small>Partí de una pieza preparada y ajustala a tus medidas.</small>
+                <small>La forma más simple de empezar: elegí una pieza base y cambiá sus medidas.</small>
               </span>
               <b>Recomendado</b>
             </a>
@@ -172,18 +172,18 @@ export default function LandingPage({
               <span className="creation-choice-icon" aria-hidden="true">✦</span>
               <span>
                 <strong>Editor libre</strong>
-                <small>Combiná formas y recortes para construir una pieza desde cero.</small>
+                <small>Para crear desde cero combinando formas y recortes editables.</small>
               </span>
-              <b>Avanzado</b>
+              <b>Desde cero</b>
             </button>
             {projectCount > 0 && (
               <button className="creation-choice" onClick={onLibrary}>
                 <span className="creation-choice-icon" aria-hidden="true">↻</span>
                 <span>
                   <strong>Continuar un proyecto</strong>
-                  <small>Volvé a uno de tus diseños guardados.</small>
+                  <small>Abrí uno de tus diseños guardados en este dispositivo.</small>
                 </span>
-                <b>{projectCount}</b>
+                <b>{projectCount === 1 ? "1 guardado" : `${projectCount} guardados`}</b>
               </button>
             )}
           </div>
@@ -192,7 +192,7 @@ export default function LandingPage({
             <div className="creation-template-heading">
               <span className="landing-eyebrow">Plantillas</span>
               <h2 id="template-start-title">Elegí una pieza cercana a lo que necesitás.</h2>
-              <p>No agregamos plantillas nuevas acá: son las opciones reales disponibles hoy.</p>
+              <p>Después vas a poder ajustar medidas, revisar la pieza y exportar STL.</p>
             </div>
             <div className="creation-category-list">
               {TEMPLATE_CATEGORIES.map((category) => {

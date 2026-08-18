@@ -411,7 +411,7 @@ function pieceContextDescription(
   fields: ParameterDefinition[],
 ) {
   if (templateId === "free") {
-    return "Combiná formas y recortes para construir tu pieza.";
+    return "Empezá con una forma o un diseño editable. Después ajustá medidas, posición y recortes.";
   }
   const primaryLabels = PRIMARY_MEASURE_KEYS[templateId]
     .map((key) => fields.find((field) => field.key === key)?.label)
@@ -419,6 +419,32 @@ function pieceContextDescription(
     .map(humanMeasureLabel)
     .slice(0, 4);
   return `Ajustá ${formatList(primaryLabels)}. Después comprobá el modelo antes de exportarlo.`;
+}
+
+function templateEntrySummary(templateId: TemplateId) {
+  if (templateId === "box") {
+    return "Estás creando una caja para electrónica.";
+  }
+  if (templateId === "bracket") {
+    return "Estás creando un soporte en L.";
+  }
+  if (templateId === "plate") {
+    return "Estás creando una placa perforada.";
+  }
+  return "Estás creando una pieza desde cero.";
+}
+
+function objectKindName(kind: ObjectKind) {
+  const names: Record<ObjectKind, string> = {
+    cube: "Cubo",
+    cylinder: "Cilindro",
+    sphere: "Esfera",
+    cone: "Cono",
+    tube: "Tubo",
+    wedge: "Cuña",
+    text: "Texto",
+  };
+  return names[kind];
 }
 
 function describeValidationIssue(
@@ -432,21 +458,21 @@ function describeValidationIssue(
   if (recorte) {
     return {
       title: `Recorte ${recorte}`,
-      detail: message,
+      detail: "El recorte queda fuera de la cara donde intentás usarlo.",
       action: "Movelo hacia adentro de la cara o reducí su medida.",
     };
   }
   if (figura) {
     return {
       title: `Figura ${figura}`,
-      detail: message,
+      detail: "Una de las figuras tiene una medida o una posición que no se puede usar así.",
       action: "Seleccioná la figura y corregí sus medidas o posición.",
     };
   }
   if (tubo) {
     return {
       title: `Tubo ${tubo}`,
-      detail: message,
+      detail: "El diámetro interior del tubo es demasiado grande para su borde exterior.",
       action: "Reducí el diámetro interior o aumentá el exterior.",
     };
   }
@@ -460,40 +486,54 @@ function describeValidationIssue(
   if (message.includes("espesor ocupa")) {
     return {
       title: "Espesor de pared",
-      detail: message,
+      detail: "Las paredes ocupan todo el interior de la caja.",
       action: "Bajá el espesor o aumentá ancho/profundidad.",
     };
   }
   if (message.includes("base debe")) {
     return {
       title: "Base de la caja",
-      detail: message,
+      detail: "La base quedó demasiado gruesa para la altura total.",
       action: "Reducí el espesor de base o aumentá la altura.",
     };
   }
   if (message.includes("dos alas")) {
     return {
       title: "Espesor del soporte",
-      detail: message,
+      detail: "El espesor es demasiado grande para el tamaño del soporte.",
       action: "Reducí el espesor o aumentá las alas del soporte.",
     };
   }
   if (message.includes("sólido")) {
     return {
       title: "Diseño libre",
-      detail: message,
+      detail: "Todavía no hay una pieza sólida sobre la que aplicar recortes.",
       action: "Agregá un sólido y después usá recortes si los necesitás.",
     };
   }
   if (message.includes("soporte debe")) {
     return {
       title: "Soporte interno",
-      detail: message,
+      detail: "El agujero del soporte es demasiado grande para el borde que lo rodea.",
       action: "Hacé el agujero más chico que el diámetro exterior.",
     };
   }
+  if (message.includes("frágil")) {
+    return {
+      title: "Pieza delicada",
+      detail: "Una de las medidas puede dejar la pieza demasiado fina.",
+      action: "Podés exportar igual, pero conviene aumentar ese espesor.",
+    };
+  }
+  if (message.includes("supera el volumen")) {
+    return {
+      title: "Tamaño de la pieza",
+      detail: "La pieza supera el volumen de referencia de impresión.",
+      action: "Reducí sus medidas o revisá si entra en tu impresora.",
+    };
+  }
   return {
-    title: severity === "error" ? "Revisar modelo" : "Advertencia",
+    title: severity === "error" ? "Revisá la pieza" : "Advertencia",
     detail: message,
     action:
       severity === "error"
@@ -1955,24 +1995,28 @@ export default function Home() {
     ? "error"
     : canExport ? "ready" : "idle";
   const statusDetail = !hasPrintableGeometry
-    ? "Agregá al menos un sólido para poder exportar."
+    ? "Agregá al menos una forma sólida para poder comprobar y exportar."
     : !isValid
-      ? `${validation.errors.length} ${validation.errors.length === 1 ? "error bloquea" : "errores bloquean"} la exportación.`
+      ? `${validation.errors.length} ${validation.errors.length === 1 ? "problema bloquea" : "problemas bloquean"} la exportación.`
       : validation.warnings.length > 0
-        ? `${validation.warnings.length} ${validation.warnings.length === 1 ? "advertencia para revisar" : "advertencias para revisar"}.`
-        : "La pieza no tiene errores detectados.";
+        ? `${validation.warnings.length} ${validation.warnings.length === 1 ? "advertencia para revisar" : "advertencias para revisar"} antes de exportar.`
+        : "La pieza no tiene problemas detectados.";
   const nextStepLabel = !hasPrintableGeometry
-    ? "Próximo paso: agregá un sólido."
+    ? "Próximo paso: agregá una forma para empezar la pieza."
     : !isValid
-      ? "Próximo paso: corregí los problemas marcados."
+      ? "Próximo paso: revisá y corregí los problemas marcados."
       : showReview
-        ? "Listo para exportar STL."
-        : "Próximo paso: comprobar modelo.";
+        ? "Último paso: exportá el STL."
+        : "Próximo paso: abrí Comprobación.";
   const statusActionLabel = !hasPrintableGeometry
-    ? "Agregar figura"
-    : !isValid || !showReview
+    ? templateId === "free"
+      ? "Agregar forma"
+      : "Ajustar medidas"
+    : !showReview
       ? "Comprobar"
-      : "Descargar STL";
+      : !isValid
+        ? "Corregir problemas"
+        : "Exportar STL";
   const primaryMeasureKeys = new Set(PRIMARY_MEASURE_KEYS[templateId]);
   const primaryFields = template.fields.filter((field) =>
     primaryMeasureKeys.has(field.key),
@@ -1980,6 +2024,22 @@ export default function Home() {
   const secondaryFields = template.fields.filter(
     (field) => !primaryMeasureKeys.has(field.key),
   );
+  const primaryFieldsPreview = primaryFields.slice(0, 4).map((field) => ({
+    key: field.key,
+    label: field.label,
+    value: parameters[field.key],
+  }));
+  const topbarPrimaryLabel = !hasPrintableGeometry
+    ? templateId === "free"
+      ? "Agregar forma"
+      : "Ajustar medidas"
+    : !showReview
+      ? "Comprobar"
+      : !isValid
+        ? "Corregir problemas"
+        : exporting === "stl"
+          ? "Generando…"
+          : "Exportar STL";
   const validationIssues = [
     ...validation.errors.map((message) => ({
       severity: "error" as const,
@@ -2211,7 +2271,11 @@ export default function Home() {
     setCutoutFace("base");
     setCutoutTool(null);
     setCameraView("iso");
-    setSavedMessage("");
+    setSavedMessage(
+      id === "free"
+        ? "Editor libre abierto. Agregá una forma o un diseño editable."
+        : `${templateEntrySummary(id)} Ajustá las medidas principales para empezar.`,
+    );
   };
 
   const faceDimensions = (face: Cutout["face"]) => ({
@@ -2270,7 +2334,9 @@ export default function Home() {
     }));
     setSelectedHoleId(id);
     setCutoutTool(null);
-    setSavedMessage("");
+    setSavedMessage(
+      `${kind === "round" ? "Recorte circular" : "Recorte rectangular"} agregado. Ajustalo desde el panel.`,
+    );
   };
 
   const moveHole = (id: string, x: number, z: number) => {
@@ -2311,6 +2377,7 @@ export default function Home() {
     setSelectedHoleId(
       remaining.find((hole) => hole.face === cutoutFace)?.id ?? null,
     );
+    setSavedMessage("Recorte eliminado");
   };
 
   const duplicateSelectedHole = () => {
@@ -2325,6 +2392,7 @@ export default function Home() {
       [templateId]: [...current[templateId], copy],
     }));
     setSelectedHoleId(id);
+    setSavedMessage("Recorte duplicado");
   };
 
   const addObject = (
@@ -2352,19 +2420,10 @@ export default function Home() {
       templateId === "box"
         ? parameters.bottom
         : parameters.thickness ?? 0;
-    const names: Record<ObjectKind, string> = {
-      cube: "Cubo",
-      cylinder: "Cilindro",
-      sphere: "Esfera",
-      cone: "Cono",
-      tube: "Tubo",
-      wedge: "Cuña",
-      text: "Texto",
-    };
     const object: CustomObject = {
       id,
       kind,
-      name: `${names[kind]} ${objects.length + 1}`,
+      name: `${objectKindName(kind)} ${objects.length + 1}`,
       hidden: false,
       locked: false,
       x: point.x,
@@ -2382,7 +2441,9 @@ export default function Home() {
     replaceObjects([...objects, object]);
     setSelectedObjectId(id);
     setSelectedObjectIds([id]);
-    setSavedMessage("");
+    setSavedMessage(
+      `${objectKindName(kind)} agregado. Ahora podés moverlo o cambiar sus medidas.`,
+    );
   };
 
   const addFreeObject = (
@@ -2410,6 +2471,9 @@ export default function Home() {
     setSelectedObjectIds(additions.map((object) => object.id));
     setSelectedObjectId(additions.at(-1)?.id ?? null);
     setFreeEditorView("objects");
+    setSavedMessage(
+      "Pieza rápida agregada. Todo sigue siendo editable.",
+    );
   };
 
   const addDesignFromGallery = (design: FreeDesignId) => {
@@ -2576,6 +2640,9 @@ export default function Home() {
       templateId === "free" && selectedObjectIds.length > 0
         ? new Set(selectedObjectIds)
         : new Set([selectedObjectId]);
+    const deletableCount = objects.filter(
+      (object) => idsToDelete.has(object.id) && !object.locked,
+    ).length;
     const remaining = objects.filter(
       (object) => !idsToDelete.has(object.id) || object.locked,
     );
@@ -2585,6 +2652,11 @@ export default function Home() {
     if (remaining.length === 0 && templateId === "free") {
       setFreeEditorView("create");
       setFreeAddOperation("solid");
+    }
+    if (deletableCount > 0) {
+      setSavedMessage(
+        deletableCount === 1 ? "Objeto eliminado" : `${deletableCount} objetos eliminados`,
+      );
     }
   };
 
@@ -2609,6 +2681,9 @@ export default function Home() {
     replaceObjects([...objects, ...copies]);
     setSelectedObjectIds(copies.map((copy) => copy.id));
     setSelectedObjectId(copies.at(-1)?.id ?? null);
+    setSavedMessage(
+      copies.length === 1 ? "Objeto duplicado" : `${copies.length} objetos duplicados`,
+    );
   };
 
   const alignSelectedObjects = (axis: "x" | "z" | "floor") => {
@@ -2627,15 +2702,27 @@ export default function Home() {
     id: string,
     key: "hidden" | "locked",
   ) => {
+    const target = objects.find((object) => object.id === id);
+    const nextValue = !target?.[key];
     replaceObjects(
       objects.map((object) =>
         object.id === id ? { ...object, [key]: !object[key] } : object,
       ),
     );
+    setSavedMessage(
+      key === "hidden"
+        ? nextValue ? "Objeto oculto" : "Objeto visible nuevamente"
+        : nextValue ? "Objeto bloqueado" : "Objeto desbloqueado",
+    );
   };
 
   const moveObjectInStack = (id: string, direction: "up" | "down") => {
     replaceObjects(reorderObject(objects, id, direction));
+    setSavedMessage(
+      direction === "up"
+        ? "Objeto movido hacia arriba en la lista"
+        : "Objeto movido hacia abajo en la lista",
+    );
   };
 
   const keyboardActionsRef = useRef({
@@ -3068,7 +3155,11 @@ export default function Home() {
     setCutoutTool(null);
     setCameraView("iso");
     setShowReview(false);
-    setSavedMessage("Nuevo proyecto listo");
+    setSavedMessage(
+      id === "free"
+        ? "Editor libre listo. Empezá agregando una forma."
+        : `${templateEntrySummary(id)} Ajustá las medidas principales para empezar.`,
+    );
     objectHistoryRef.current = { past: [], future: [] };
     setHistoryAvailability({ canUndo: false, canRedo: false });
     pendingDraftRef.current = null;
@@ -3149,7 +3240,7 @@ export default function Home() {
       }
 
       setSavedMessage(
-        `${format.toUpperCase()} generado correctamente`,
+        `${format.toUpperCase()} exportado correctamente · ${exportName}.${format}`,
       );
     } catch (error) {
       setSavedMessage(
@@ -3237,10 +3328,14 @@ export default function Home() {
     if (!hasPrintableGeometry) {
       setShowReview(false);
       setFreeEditorView("create");
+      setSavedMessage("Agregá una forma para empezar tu pieza.");
       return;
     }
     if (!isValid || !showReview) {
       setShowReview(true);
+      if (!isValid) {
+        setSavedMessage("Abrimos Comprobación para que revises los problemas marcados.");
+      }
       return;
     }
     void exportModel("stl");
@@ -3388,14 +3483,14 @@ export default function Home() {
             <span className={isValid ? "ready" : "error"}>
               {isValid ? "✓" : "!"}
             </span>
-            Comprobar
+            {showReview ? "Ocultar comprobación" : "Ver comprobación"}
           </button>
           <button
             className="button primary compact"
-            onClick={() => void exportModel("stl")}
-            disabled={!canExport || Boolean(exporting)}
+            onClick={handleStatusAction}
+            disabled={Boolean(exporting)}
           >
-            {exporting === "stl" ? "Generando…" : "Descargar STL"}
+            {topbarPrimaryLabel}
           </button>
         </nav>
       </header>
@@ -3500,11 +3595,11 @@ export default function Home() {
                 ) : (
                   <div className="design-catalog-empty">
                     <span aria-hidden="true">⌕</span>
-                    <strong>No encontramos diseños</strong>
+                    <strong>No encontramos diseños con esos filtros</strong>
                     <button onClick={() => {
                       setDesignQuery("");
                       setDesignCategory("all");
-                    }}>Limpiar filtros</button>
+                    }}>Ver todos</button>
                   </div>
                 )}
               </aside>
@@ -3847,7 +3942,20 @@ export default function Home() {
               <div className="library-empty">
                 <span>◇</span>
                 <strong>Tu biblioteca está vacía</strong>
-                <p>Cerrá esta ventana y tocá Guardar para crear el primer proyecto.</p>
+                <p>Guardá un proyecto para volver más tarde o importá un archivo .forja existente.</p>
+                <div className="library-empty-actions">
+                  <button
+                    onClick={() => {
+                      setShowLibrary(false);
+                      setShowStart(true);
+                    }}
+                  >
+                    Crear desde una plantilla
+                  </button>
+                  <button onClick={() => projectFileInputRef.current?.click()}>
+                    Importar .forja
+                  </button>
+                </div>
               </div>
             )}
           </section>
@@ -3956,11 +4064,30 @@ export default function Home() {
 
           <section className="piece-context-panel" aria-labelledby="piece-context-title">
             <span className="eyebrow">Diseño</span>
-            <small>Estás editando</small>
+            <small>{templateEntrySummary(templateId)}</small>
             <h2 id="piece-context-title">
               {templateId === "free" ? "Diseño libre" : template.name}
             </h2>
             <p>{pieceContextDescription(templateId, template.fields)}</p>
+            {templateId !== "free" && primaryFieldsPreview.length > 0 ? (
+              <div className="piece-context-highlights" aria-label="Medidas principales">
+                {primaryFieldsPreview.map((field) => (
+                  <div key={field.key}>
+                    <span>{field.label}</span>
+                    <strong>{field.value} mm</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="piece-context-tip">
+                <strong>Primer paso recomendado</strong>
+                <span>
+                  {templateId === "free"
+                    ? "Abrí Biblioteca o Diseños y agregá la primera forma."
+                    : "Ajustá las medidas principales y después abrí Comprobación."}
+                </span>
+              </div>
+            )}
           </section>
 
           <PieceStatusPanel
@@ -4559,10 +4686,10 @@ export default function Home() {
                   <div className="free-designs-panel">
                     <div className="free-panel-intro">
                       <strong>Galería de diseños</strong>
-                      <small>Explorá piezas completas con una vista previa antes de agregarlas.</small>
+                      <small>Elegí una pieza editable si no querés empezar desde cero.</small>
                     </div>
                     <button className="open-design-gallery" onClick={() => setShowDesignGallery(true)}>
-                      Abrir biblioteca de diseños
+                      Abrir diseños editables
                     </button>
                   </div>
                 )}
@@ -4699,8 +4826,8 @@ export default function Home() {
                     {templateId === "free" && (
                       <label className="select-field compact-select operation-field">
                         <span>
-                          <strong>Operación</strong>
-                          <small>Construye o recorta el resultado</small>
+                          <strong>Tipo en la pieza</strong>
+                          <small>Sumá material o usalo como recorte</small>
                         </span>
                         <select
                           value={selectedObject.operation ?? "solid"}
@@ -4710,10 +4837,10 @@ export default function Home() {
                               event.target.value as ObjectOperation,
                             )
                           }
-                          aria-label="Operación booleana del objeto"
+                          aria-label="Tipo del objeto en la pieza"
                         >
                           <option value="solid">Sólido</option>
-                          <option value="hole">Agujero</option>
+                          <option value="hole">Recorte</option>
                         </select>
                       </label>
                     )}
@@ -4948,11 +5075,18 @@ export default function Home() {
                 )}
               </>
             ) : (
-              <p className="empty-state">
-                {templateId === "free"
-                  ? "El lienzo está vacío. Agregá tu primer sólido para empezar."
-                  : "Agregá una figura o texto para combinarla con la plantilla."}
-              </p>
+              <div className="empty-state-card">
+                <strong>
+                  {templateId === "free"
+                    ? "Todavía no hay objetos en tu diseño"
+                    : "Todavía no agregaste extras a esta pieza"}
+                </strong>
+                <p className="empty-state">
+                  {templateId === "free"
+                    ? "Abrí Biblioteca para agregar una forma, o usá Diseños para empezar con una pieza editable."
+                    : "Podés seguir sólo con las medidas principales o sumar figuras y texto después."}
+                </p>
+              </div>
             )}
           </details>
 
@@ -5506,10 +5640,14 @@ export default function Home() {
               ) : (
                 <div className="inspector-empty-state">
                   <span>✦</span>
-                  <strong>Seleccioná una figura</strong>
+                  <strong>No hay nada seleccionado</strong>
                   <p>
-                    Después podés moverla directamente o escribir medidas exactas.
+                    Elegí una figura en el visor o en Capas para cambiar su tamaño, posición o tipo.
                   </p>
+                  <div className="inspector-empty-actions">
+                    <button onClick={() => setFreeEditorView("create")}>Abrir Biblioteca</button>
+                    <button onClick={() => setShowDesignGallery(true)}>Ver diseños</button>
+                  </div>
                 </div>
               )}
 
@@ -5519,7 +5657,7 @@ export default function Home() {
                 <span>{canExport ? "✓" : "+"}</span>
                 <div>
                   <strong>
-                    {canExport ? "Listo para exportar" : "Agregá un sólido visible"}
+                    {canExport ? "Listo para exportar" : "Agregá una forma visible"}
                   </strong>
                   <small>{volumeCm3.toFixed(1)} cm³ aproximados</small>
                 </div>
@@ -5552,14 +5690,14 @@ export default function Home() {
               <strong>
                 {!isValid
                   ? "Necesita corrección"
-                  : hasPrintableGeometry ? "Modelo válido" : "Lienzo vacío"}
+                  : hasPrintableGeometry ? "Pieza lista" : "Todavía no empezó"}
               </strong>
               <p>
                 {!isValid
                   ? "No se puede exportar hasta corregir los errores."
                   : hasPrintableGeometry
-                    ? "La pieza se puede exportar como STL."
-                    : "Agregá un sólido para comenzar a diseñar."}
+                    ? "La pieza ya pasó la comprobación y se puede exportar como STL."
+                    : "Todavía no hay una pieza sólida para comprobar."}
               </p>
             </div>
           </div>
@@ -5571,8 +5709,8 @@ export default function Home() {
               onClick={() => void exportModel("stl")}
               disabled={!canExport || Boolean(exporting)}
             >
-              <span>Descargar STL</span>
-              <small>Formato universal para laminadores</small>
+              <span>Exportar STL</span>
+              <small>Paso final recomendado para abrir en tu laminador</small>
             </button>
             <div className="secondary-formats">
               <strong>Otros formatos</strong>
@@ -5583,7 +5721,7 @@ export default function Home() {
                   disabled={!canExport || Boolean(exporting)}
                 >
                   <span>3MF</span>
-                  <small>Proyecto moderno</small>
+                  <small>Proyecto con más metadatos</small>
                 </button>
                 <button
                   className="format-button"
@@ -5591,14 +5729,14 @@ export default function Home() {
                   disabled={!canExport || Boolean(exporting)}
                 >
                   <span>STEP</span>
-                  <small>Malla facetada</small>
+                  <small>Intercambio con otras herramientas</small>
                 </button>
               </div>
             </div>
             <p>
               {exporting
                 ? `Generando ${exporting.toUpperCase()}…`
-                : "STL es el archivo principal para abrir en tu laminador."}
+                : `STL es el archivo principal para abrir en tu laminador como ${exportName}.stl.`}
             </p>
           </div>
 
@@ -5622,12 +5760,20 @@ export default function Home() {
                   </article>
                 ))}
               </div>
+            ) : !hasPrintableGeometry ? (
+              <div className="checklist-empty">
+                <span aria-hidden="true">+</span>
+                <div>
+                  <strong>Todavía no hay una pieza para comprobar</strong>
+                  <p>Volvé a Diseño, agregá una forma y después revisá este panel otra vez.</p>
+                </div>
+              </div>
             ) : (
               <div className="checklist-empty">
                 <span aria-hidden="true">✓</span>
                 <div>
                   <strong>No hay errores detectados</strong>
-                  <p>Podés descargar el STL o seguir ajustando la pieza.</p>
+                  <p>La pieza está lista para exportar como STL o para seguir ajustándola.</p>
                 </div>
               </div>
             )}

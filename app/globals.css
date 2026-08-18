@@ -480,6 +480,14 @@ button {
   line-height: 1.5;
 }
 
+.library-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .library-no-results {
   min-height: 250px;
 }
@@ -2026,6 +2034,37 @@ button {
   color: #8aa7b6;
   font-size: 12.5px;
   line-height: 1.5;
+}
+
+.piece-context-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.piece-context-highlights > div,
+.piece-context-tip {
+  min-height: 54px;
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border: 1px solid rgba(124, 184, 214, 0.12);
+  border-radius: 9px;
+  background: rgba(4, 14, 21, 0.45);
+}
+
+.piece-context-highlights span,
+.piece-context-tip span {
+  color: #7f9cac;
+  font-size: 10.5px;
+  line-height: 1.35;
+}
+
+.piece-context-highlights strong,
+.piece-context-tip strong {
+  color: #e4f7ff;
+  font-size: 11.5px;
 }
 
 .piece-status-panel {
@@ -3597,6 +3636,33 @@ button {
   line-height: 1.5;
 }
 
+.inspector-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.inspector-empty-actions button,
+.library-empty-actions button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid rgba(124, 184, 214, 0.16);
+  border-radius: 8px;
+  color: #d5eef8;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.inspector-empty-actions button:hover,
+.library-empty-actions button:hover {
+  border-color: rgba(36, 181, 245, 0.34);
+  color: #effbff;
+}
+
 .inspector-multi {
   display: grid;
   gap: 12px;
@@ -4835,6 +4901,21 @@ input::-webkit-inner-spin-button {
   line-height: 1.55;
 }
 
+.empty-state-card {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 13px;
+  padding: 12px;
+  border: 1px solid rgba(124, 184, 214, 0.1);
+  border-radius: 10px;
+  background: rgba(4, 14, 21, 0.34);
+}
+
+.empty-state-card strong {
+  color: #cfe4ee;
+  font-size: 12px;
+}
+
 .face-tabs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -5963,6 +6044,10 @@ input::-webkit-inner-spin-button {
     margin-top: 20px;
   }
 
+  .piece-context-highlights {
+    grid-template-columns: 1fr;
+  }
+
   .viewport-footer span:last-child {
     display: none;
   }
@@ -6035,6 +6120,17 @@ input::-webkit-inner-spin-button {
 
   .free-canvas-snap .toolbar-separator {
     display: none;
+  }
+
+  .inspector-empty-actions,
+  .library-empty-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .inspector-empty-actions button,
+  .library-empty-actions button {
+    width: 100%;
   }
 }
 
