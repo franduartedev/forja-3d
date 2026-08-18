@@ -1811,6 +1811,8 @@ export default function Home() {
   const [savedMessage, setSavedMessage] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [showReview, setShowReview] = useState(false);
+  const [leftPanelCollapsed, setLeftPanelCollapsed] = useState(false);
+  const [isCompactViewport, setIsCompactViewport] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showDesignGallery, setShowDesignGallery] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
@@ -1841,6 +1843,24 @@ export default function Home() {
   const projectFileInputRef = useRef<HTMLInputElement>(null);
   const pendingDraftRef = useRef<StoredProject | null>(null);
   const modalOpen = showTutorial || showLibrary || showDesignGallery || showFeedback;
+
+  useEffect(() => {
+    let previousCompact: boolean | null = null;
+    const syncViewportMode = () => {
+      const compact = window.innerWidth <= 1024;
+      setIsCompactViewport(compact);
+      setLeftPanelCollapsed((current) => {
+        if (previousCompact === null || previousCompact !== compact) {
+          return compact;
+        }
+        return current;
+      });
+      previousCompact = compact;
+    };
+    syncViewportMode();
+    window.addEventListener("resize", syncViewportMode);
+    return () => window.removeEventListener("resize", syncViewportMode);
+  }, []);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -3328,6 +3348,7 @@ export default function Home() {
     if (!hasPrintableGeometry) {
       setShowReview(false);
       setFreeEditorView("create");
+      setLeftPanelCollapsed(false);
       setSavedMessage("Agregá una forma para empezar tu pieza.");
       return;
     }
@@ -3365,126 +3386,116 @@ export default function Home() {
           <small className="brand-tagline">Diseñá · validá · fabricá</small>
         </a>
         <nav className="top-actions" aria-label="Acciones del proyecto">
-          <span className="version-pill"><i /> V1</span>
           <div className="workflow-steps" aria-label="Flujo de creación">
             <span className="active">Diseño</span>
             <span className={showReview ? "active" : ""}>Comprobación</span>
             <span className={canExport ? "active" : ""}>Exportación</span>
           </div>
-          <span className={`autosave-status ${autoSaveState}`} aria-live="polite">
-            {autoSaveState === "saving" ? "Guardando…" : autoSaveState === "saved" ? "Guardado automático" : "Autoguardado"}
-          </span>
-          <button
-            className="button ghost save-trigger"
-            onClick={saveProject}
-          >
-            Guardar
-          </button>
-
-          <details className="project-actions-menu">
-            <summary
-              aria-label="Más acciones del proyecto"
-              title="Más acciones"
-            >
-              <span className="project-actions-label">
-                Más
-              </span>
-
-              <span
-                className="project-actions-chevron"
-                aria-hidden="true"
-              >
-                ⌄
-              </span>
-            </summary>
-
-            <div className="project-actions-popover">
-              <button
-                type="button"
-                onClick={(event) => {
-                  openTutorial();
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute("open");
-                }}
-              >
-                <i aria-hidden="true">
-                  {tutorialCompleted ? "✓" : "?"}
-                </i>
-
-                <span>
-                  <strong>Aprender</strong>
-                  <small>Volver a ver el tutorial</small>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => {
-                  setShowLibrary(true);
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute("open");
-                }}
-              >
-                <i aria-hidden="true">▣</i>
-
-                <span>
-                  <strong>Mis proyectos</strong>
-                  <small>
-                    {savedProjects.length > 0
-                      ? `${savedProjects.length} guardados`
-                      : "Abrir biblioteca personal"}
-                  </small>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => {
-                  setShowDesignGallery(true);
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute("open");
-                }}
-              >
-                <i aria-hidden="true">◆</i>
-
-                <span>
-                  <strong>Diseños</strong>
-                  <small>Explorar modelos de la biblioteca</small>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={(event) => {
-                  setShowFeedback(true);
-                  event.currentTarget
-                    .closest("details")
-                    ?.removeAttribute("open");
-                }}
-              >
-                <i aria-hidden="true">!</i>
-
-                <span>
-                  <strong>Reportar</strong>
-                  <small>Contarnos un problema o sugerencia</small>
-                </span>
-              </button>
-            </div>
-          </details>
-          <button
-            className={`button review-trigger ${showReview ? "active" : ""}`}
-            onClick={() => setShowReview((current) => !current)}
-            aria-expanded={showReview}
-            aria-controls="manufacturing-review"
-          >
-            <span className={isValid ? "ready" : "error"}>
-              {isValid ? "✓" : "!"}
+          <div className="topbar-utility">
+            <span className={`autosave-status ${autoSaveState}`} aria-live="polite">
+              {autoSaveState === "saving" ? "Guardando" : autoSaveState === "saved" ? "Guardado" : "Auto"}
             </span>
-            {showReview ? "Ocultar comprobación" : "Ver comprobación"}
-          </button>
+            <button
+              className="button ghost save-trigger"
+              onClick={saveProject}
+            >
+              Guardar
+            </button>
+
+            <details className="project-actions-menu">
+              <summary
+                aria-label="Más acciones del proyecto"
+                title="Más acciones"
+              >
+                <span className="project-actions-label">
+                  Más
+                </span>
+
+                <span
+                  className="project-actions-chevron"
+                  aria-hidden="true"
+                >
+                  ⌄
+                </span>
+              </summary>
+
+              <div className="project-actions-popover">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    openTutorial();
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+                  }}
+                >
+                  <i aria-hidden="true">
+                    {tutorialCompleted ? "✓" : "?"}
+                  </i>
+
+                  <span>
+                    <strong>Aprender</strong>
+                    <small>Volver a ver el tutorial</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    setShowLibrary(true);
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+                  }}
+                >
+                  <i aria-hidden="true">▣</i>
+
+                  <span>
+                    <strong>Mis proyectos</strong>
+                    <small>
+                      {savedProjects.length > 0
+                        ? `${savedProjects.length} guardados`
+                        : "Abrir biblioteca personal"}
+                    </small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    setShowDesignGallery(true);
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+                  }}
+                >
+                  <i aria-hidden="true">◆</i>
+
+                  <span>
+                    <strong>Diseños</strong>
+                    <small>Explorar modelos de la biblioteca</small>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    setShowFeedback(true);
+                    event.currentTarget
+                      .closest("details")
+                      ?.removeAttribute("open");
+                  }}
+                >
+                  <i aria-hidden="true">!</i>
+
+                  <span>
+                    <strong>Reportar</strong>
+                    <small>Contarnos un problema o sugerencia</small>
+                  </span>
+                </button>
+              </div>
+            </details>
+          </div>
           <button
             className="button primary compact"
             onClick={handleStatusAction}
@@ -3965,8 +3976,31 @@ export default function Home() {
       {!showStart && (
       <section className={`workspace ${
         templateId === "free" ? "free-workspace" : showReview ? "review-open" : "review-hidden"
+      } ${leftPanelCollapsed ? "is-sidebar-collapsed" : ""} ${
+        isCompactViewport ? "is-compact-viewport" : ""
       }`} aria-hidden={modalOpen || undefined} inert={modalOpen ? true : undefined}>
-        <aside className={`left-panel ${templateId === "free" ? "free-left-panel" : ""}`}>
+        {isCompactViewport && !leftPanelCollapsed && (
+          <button
+            className="sidebar-backdrop"
+            type="button"
+            aria-label="Cerrar panel lateral"
+            onClick={() => setLeftPanelCollapsed(true)}
+          />
+        )}
+        <button
+          className="sidebar-toggle"
+          type="button"
+          aria-expanded={!leftPanelCollapsed}
+          aria-controls="editor-left-panel"
+          onClick={() => setLeftPanelCollapsed((current) => !current)}
+        >
+          <span aria-hidden="true">{leftPanelCollapsed ? "›" : "‹"}</span>
+          <small>{leftPanelCollapsed ? "Panel" : "Ocultar"}</small>
+        </button>
+        <aside
+          id="editor-left-panel"
+          className={`left-panel ${templateId === "free" ? "free-left-panel" : ""}`}
+        >
           {templateId === "free" && !showReview ? (
             <div className="free-project-bar">
               <div className="free-project-title">
@@ -4014,48 +4048,57 @@ export default function Home() {
             </div>
           ) : (
             <div className="project-overview">
-              <div className="panel-heading">
-                <span className="eyebrow">Proyecto</span>
-                <h1>Archivo y plantilla</h1>
-                <p>Nombrá la pieza y cambiá el punto de partida si lo necesitás.</p>
-              </div>
-
-              <label className="project-name-field">
-            <span>
-              <strong>Nombre del archivo</strong>
-              <small>Se usa en todos los formatos</small>
-            </span>
-            <span className="file-name-control">
-              <input
-                type="text"
-                value={projectName}
-                maxLength={60}
-                onInput={(event) => {
-                  setProjectName(event.currentTarget.value);
-                  setSavedMessage("");
-                }}
-                aria-label="Nombre personalizado del archivo"
-                placeholder="mi-pieza-forja"
-                spellCheck={false}
-              />
-              <em>.3D</em>
-            </span>
-            <small className="file-name-preview">{exportName}</small>
+              <label className="project-name-field compact-project-name">
+                <span>
+                  <strong>Archivo</strong>
+                  <small>{exportName}</small>
+                </span>
+                <span className="file-name-control">
+                  <input
+                    type="text"
+                    value={projectName}
+                    maxLength={60}
+                    onInput={(event) => {
+                      setProjectName(event.currentTarget.value);
+                      setSavedMessage("");
+                    }}
+                    aria-label="Nombre personalizado del archivo"
+                    placeholder="mi-pieza-forja"
+                    spellCheck={false}
+                  />
+                  <em>.3D</em>
+                </span>
               </label>
 
-              <div className="template-strip" aria-label="Plantillas disponibles">
-                {TEMPLATES.map((item) => (
+              <label className="template-compact-select">
+                <span>
+                  <strong>Plantilla</strong>
+                  <small>{template.shortName}</small>
+                </span>
+                <select
+                  value={templateId}
+                  onChange={(event) =>
+                    chooseTemplate(event.currentTarget.value as TemplateId)
+                  }
+                  aria-label="Cambiar plantilla"
+                >
+                  {TEMPLATES.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.shortName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="project-overview-actions">
+                {TEMPLATES.filter((item) => item.id !== templateId).map((item) => (
                   <button
-                    className={`template-card ${item.id === templateId ? "active" : ""}`}
+                    type="button"
                     onClick={() => chooseTemplate(item.id)}
-                    aria-pressed={item.id === templateId}
                     key={item.id}
+                    title={`Usar ${item.name}`}
                   >
-                    <span className="template-icon">{item.icon}</span>
-                    <span>
-                      <strong>{item.shortName}</strong>
-                      <small>{item.id === templateId ? "Editando" : "Usar plantilla"}</small>
-                    </span>
+                    <span aria-hidden="true">{item.icon}</span>
+                    {item.shortName}
                   </button>
                 ))}
               </div>
