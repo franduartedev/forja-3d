@@ -42,7 +42,6 @@ import {
 import type {
   Cutout,
   CustomObject,
-  LidStyle,
   ModelOptions,
   ModelParameters,
   ObjectKind,
@@ -68,12 +67,14 @@ import {
 import LandingPage from "./components/LandingPage";
 import DesignGeometryPreview from "./components/DesignGeometryPreview";
 import EditorHeader from "./components/editor/EditorHeader";
+import FabricationSettingsPanel from "./components/editor/FabricationSettingsPanel";
 import FallbackModel from "./components/editor/FallbackModel";
 import InspectorNumberField from "./components/editor/InspectorNumberField";
 import MovePad from "./components/editor/MovePad";
-import ParameterField from "./components/editor/ParameterField";
+import PieceContextPanel from "./components/editor/PieceContextPanel";
 import PieceStatusPanel from "./components/editor/PieceStatusPanel";
 import ProjectOverviewPanel from "./components/editor/ProjectOverviewPanel";
+import TemplateMeasurementsPanel from "./components/editor/TemplateMeasurementsPanel";
 import { useModalFocus } from "./hooks/useModalFocus";
 import type {
   DesignCategory,
@@ -3508,33 +3509,13 @@ export default function Home() {
             onRedo={redoObjects}
           />
 
-          <section className="piece-context-panel" aria-labelledby="piece-context-title">
-            <span className="eyebrow">Diseño</span>
-            <small>{templateEntrySummary(templateId)}</small>
-            <h2 id="piece-context-title">
-              {templateId === "free" ? "Diseño libre" : template.name}
-            </h2>
-            <p>{pieceContextDescription(templateId, template.fields)}</p>
-            {templateId !== "free" && primaryFieldsPreview.length > 0 ? (
-              <div className="piece-context-highlights" aria-label="Medidas principales">
-                {primaryFieldsPreview.map((field) => (
-                  <div key={field.key}>
-                    <span>{field.label}</span>
-                    <strong>{field.value} mm</strong>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="piece-context-tip">
-                <strong>Primer paso recomendado</strong>
-                <span>
-                  {templateId === "free"
-                    ? "Abrí Biblioteca o Diseños y agregá la primera forma."
-                    : "Ajustá las medidas principales y después abrí Comprobación."}
-                </span>
-              </div>
-            )}
-          </section>
+          <PieceContextPanel
+            isFreeTemplate={templateId === "free"}
+            entrySummary={templateEntrySummary(templateId)}
+            title={templateId === "free" ? "Diseño libre" : template.name}
+            description={pieceContextDescription(templateId, template.fields)}
+            primaryFieldsPreview={primaryFieldsPreview}
+          />
 
           <PieceStatusPanel
             statusLabel={geometryStatusLabel}
@@ -3548,263 +3529,38 @@ export default function Home() {
             onAction={handleStatusAction}
           />
 
-          <details
-            className="tool-section"
+          <TemplateMeasurementsPanel
+            templateId={templateId}
+            parameters={parameters}
+            primaryFields={primaryFields}
+            secondaryFields={secondaryFields}
+            presets={templateId === "free" ? [] : TEMPLATE_PRESETS[templateId]}
             open={openToolSections.measurements}
-            onToggle={(event) => {
-              const open = event.currentTarget.open;
+            onOpenChange={(open) => {
               setOpenToolSections((current) =>
                 current.measurements === open
                   ? current
                   : { ...current, measurements: open },
               );
             }}
-          >
-            <summary>
-              <span><b>01</b> {templateId === "free" ? "Lienzo y medidas" : "Medidas de la pieza"}</span>
-              <small>
-                {templateId === "free"
-                  ? `${parameters.width} × ${parameters.depth}`
-                  : "mm"}
-              </small>
-            </summary>
-            {templateId !== "free" && (
-              <div className="template-preset-block">
-                <div className="template-preset-heading">
-                  <span>
-                    <strong>Tamaños rápidos</strong>
-                    <small>Elegí una base y personalizala</small>
-                  </span>
-                  <em>Editable</em>
-                </div>
-                <div className="template-preset-grid">
-                  {TEMPLATE_PRESETS[templateId].map((preset) => {
-                    const isActive = Object.entries(preset.parameters).every(
-                      ([key, value]) => parameters[key] === value,
-                    );
-                    return (
-                      <button
-                        className={isActive ? "active" : ""}
-                        onClick={() => applyTemplatePreset(preset)}
-                        aria-pressed={isActive}
-                        key={preset.id}
-                      >
-                        <strong>{preset.name}</strong>
-                        <small>{preset.detail}</small>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <div className="primary-measure-block">
-              <div className="measure-block-heading">
-                <strong>Medidas principales</strong>
-                <small>Lo mínimo para ajustar la pieza rápido.</small>
-              </div>
-              <div className="fields primary-fields">
-                {primaryFields.map((field) => (
-                  <ParameterField
-                    field={field}
-                    value={parameters[field.key]}
-                    featured
-                    onChange={(value) => updateParameter(field.key, value)}
-                    key={`${templateId}-${field.key}`}
-                  />
-                ))}
-              </div>
-            </div>
-            {secondaryFields.length > 0 && (
-              <details className="secondary-measures">
-                <summary>Más medidas</summary>
-                <div className="fields">
-                  {secondaryFields.map((field) => (
-                    <ParameterField
-                      field={field}
-                      value={parameters[field.key]}
-                      onChange={(value) => updateParameter(field.key, value)}
-                      key={`${templateId}-${field.key}`}
-                    />
-                  ))}
-                </div>
-              </details>
-            )}
-            {templateId !== "free" && (
-              <button
-                className="edit-in-free-action"
-                onClick={editTemplateInFreeMode}
-              >
-                <span>✦</span>
-                <span>
-                  <strong>Editar todo en Libre</strong>
-                  <small>Convierte paredes, agujeros y piezas en objetos editables</small>
-                </span>
-                <b>Continuar →</b>
-              </button>
-            )}
-          </details>
+            onParameterChange={updateParameter}
+            onApplyPreset={applyTemplatePreset}
+            onEditInFreeMode={editTemplateInFreeMode}
+          />
 
-          {templateId !== "free" && (
-          <details
-            className="tool-section"
+          <FabricationSettingsPanel
+            templateId={templateId}
+            featureSettings={featureSettings}
             open={openToolSections.manufacturing}
-            onToggle={(event) => {
-              const open = event.currentTarget.open;
+            onOpenChange={(open) => {
               setOpenToolSections((current) =>
                 current.manufacturing === open
                   ? current
                   : { ...current, manufacturing: open },
               );
             }}
-          >
-            <summary>
-              <span><b>02</b> Detalles de fabricación</span>
-              <small>{featureSettings.cornerRadius} mm</small>
-            </summary>
-            {(
-              <label className="field">
-                <span>
-                  <strong>Radio de esquinas</strong>
-                  <small>Suaviza el contorno</small>
-                </span>
-                <span className="number-control">
-                  <input
-                    type="number"
-                    min="0"
-                    max="20"
-                    step="0.5"
-                    value={featureSettings.cornerRadius}
-                    onInput={(event) =>
-                      updateFeature("cornerRadius", Number(event.currentTarget.value))
-                    }
-                    aria-label="Radio de esquinas"
-                  />
-                  <em>mm</em>
-                </span>
-              </label>
-            )}
-
-            {templateId === "box" && (
-              <>
-                <label className="select-field">
-                  <span>
-                    <strong>Tipo de tapa</strong>
-                    <small>Se muestra elevada para inspeccionarla</small>
-                  </span>
-                  <select
-                    value={featureSettings.lidStyle}
-                    onChange={(event) =>
-                      updateFeature("lidStyle", event.target.value as LidStyle)
-                    }
-                    aria-label="Tipo de tapa"
-                  >
-                    <option value="none">Sin tapa</option>
-                    <option value="snap">A presión</option>
-                    <option value="screw">Con tornillos</option>
-                    <option value="slide">Corredera</option>
-                  </select>
-                </label>
-                {featureSettings.lidStyle !== "none" && (
-                  <label className="field">
-                    <span>
-                      <strong>Espesor de tapa</strong>
-                      <small>Pieza incluida en la exportación</small>
-                    </span>
-                    <span className="number-control">
-                      <input
-                        type="number"
-                        min="1"
-                        max="8"
-                        step="0.2"
-                        value={featureSettings.lidThickness}
-                        onInput={(event) =>
-                          updateFeature(
-                            "lidThickness",
-                            Number(event.currentTarget.value),
-                          )
-                        }
-                        aria-label="Espesor de tapa"
-                      />
-                      <em>mm</em>
-                    </span>
-                  </label>
-                )}
-                <label className="select-field">
-                  <span>
-                    <strong>Soportes internos</strong>
-                    <small>Torres para placas electrónicas</small>
-                  </span>
-                  <select
-                    value={featureSettings.standoffCount}
-                    onChange={(event) =>
-                      updateFeature("standoffCount", Number(event.target.value))
-                    }
-                    aria-label="Cantidad de soportes internos"
-                  >
-                    <option value="0">Sin soportes</option>
-                    <option value="2">2 soportes</option>
-                    <option value="4">4 soportes</option>
-                  </select>
-                </label>
-                {featureSettings.standoffCount > 0 && (
-                  <div className="mini-grid">
-                    <label>
-                      <span>Ø exterior</span>
-                      <input
-                        type="number"
-                        value={featureSettings.standoffDiameter}
-                        min="4"
-                        max="16"
-                        step="0.5"
-                        onInput={(event) =>
-                          updateFeature(
-                            "standoffDiameter",
-                            Number(event.currentTarget.value),
-                          )
-                        }
-                        aria-label="Diámetro exterior del soporte"
-                      />
-                    </label>
-                    <label>
-                      <span>Ø tornillo</span>
-                      <input
-                        type="number"
-                        value={featureSettings.standoffHole}
-                        min="1.5"
-                        max="8"
-                        step="0.1"
-                        onInput={(event) =>
-                          updateFeature(
-                            "standoffHole",
-                            Number(event.currentTarget.value),
-                          )
-                        }
-                        aria-label="Diámetro del tornillo del soporte"
-                      />
-                    </label>
-                    <label>
-                      <span>Altura</span>
-                      <input
-                        type="number"
-                        value={featureSettings.standoffHeight}
-                        min="2"
-                        max="40"
-                        step="0.5"
-                        onInput={(event) =>
-                          updateFeature(
-                            "standoffHeight",
-                            Number(event.currentTarget.value),
-                          )
-                        }
-                        aria-label="Altura del soporte"
-                      />
-                    </label>
-                  </div>
-                )}
-              </>
-            )}
-          </details>
-          )}
+            onFeatureChange={updateFeature}
+          />
 
           {templateId !== "free" && (
           <details className="tool-section">
