@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
+import {
+  getSelectedStarterDesign,
+  getVisibleLibraryProjects,
+  getVisibleStarterDesigns,
+} from "../lib/editor/catalog";
 import { getEditorStatus } from "../lib/editor/status";
 import { getTemplateFieldGroups } from "../lib/editor/template-fields";
 import { getValidationIssues } from "../lib/editor/validation-presentation";
@@ -113,5 +118,56 @@ test("editor validation rejects free designs with only cutouts", () => {
     validation.errors.includes(
       "Agregá al menos un sólido antes de usar figuras de recorte.",
     ),
+  );
+});
+
+test("catalog helpers filter and sort saved projects", () => {
+  const projects = [
+    { projectName: "Caja Beta", savedAt: "2026-01-03T00:00:00.000Z" },
+    { projectName: "Soporte Alfa", savedAt: "2026-01-01T00:00:00.000Z" },
+    { projectName: "Caja Alfa", savedAt: "2026-01-02T00:00:00.000Z" },
+  ];
+
+  assert.deepEqual(
+    getVisibleLibraryProjects(projects, "caja", "name").map((project) => project.projectName),
+    ["Caja Alfa", "Caja Beta"],
+  );
+  assert.deepEqual(
+    getVisibleLibraryProjects(projects, "", "recent").map((project) => project.projectName),
+    ["Caja Beta", "Caja Alfa", "Soporte Alfa"],
+  );
+});
+
+test("catalog helpers filter and select starter designs", () => {
+  const designs = [
+    {
+      id: "phone-stand" as const,
+      name: "Soporte celular",
+      description: "Base inclinada",
+      category: "soportes" as const,
+    },
+    {
+      id: "sensor-case" as const,
+      name: "Caja sensor",
+      description: "Electrónica compacta",
+      category: "electronica" as const,
+    },
+  ];
+
+  assert.deepEqual(
+    getVisibleStarterDesigns(designs, "sensor", "all").map((design) => design.id),
+    ["sensor-case"],
+  );
+  assert.deepEqual(
+    getVisibleStarterDesigns(designs, "", "soportes").map((design) => design.id),
+    ["phone-stand"],
+  );
+  assert.equal(
+    getSelectedStarterDesign(designs, "sensor-case").name,
+    "Caja sensor",
+  );
+  assert.equal(
+    getSelectedStarterDesign(designs, "tray").name,
+    "Soporte celular",
   );
 });

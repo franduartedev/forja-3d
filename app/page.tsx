@@ -12,6 +12,11 @@ import type {
 import type * as ThreeTypes from "three";
 import type { OrbitControls as OrbitControlsType } from "three/examples/jsm/controls/OrbitControls.js";
 import type { TransformControls as TransformControlsType } from "three/examples/jsm/controls/TransformControls.js";
+import {
+  getSelectedStarterDesign,
+  getVisibleLibraryProjects,
+  getVisibleStarterDesigns,
+} from "../lib/editor/catalog";
 import { getEditorStatus } from "../lib/editor/status";
 import { getTemplateFieldGroups } from "../lib/editor/template-fields";
 import { getEditorValidation } from "../lib/editor/validation";
@@ -62,11 +67,13 @@ import {
 } from "../lib/shape-library";
 import LandingPage from "./components/LandingPage";
 import DesignGeometryPreview from "./components/DesignGeometryPreview";
+import EditorHeader from "./components/editor/EditorHeader";
 import FallbackModel from "./components/editor/FallbackModel";
 import InspectorNumberField from "./components/editor/InspectorNumberField";
 import MovePad from "./components/editor/MovePad";
 import ParameterField from "./components/editor/ParameterField";
 import PieceStatusPanel from "./components/editor/PieceStatusPanel";
+import ProjectOverviewPanel from "./components/editor/ProjectOverviewPanel";
 import { useModalFocus } from "./hooks/useModalFocus";
 import type {
   DesignCategory,
@@ -1703,29 +1710,16 @@ export default function Home() {
     nozzleSize,
     minimumWall,
   });
-  const visibleLibraryProjects = useMemo(() => {
-    const normalizedQuery = libraryQuery.trim().toLocaleLowerCase("es-AR");
-    const filtered = normalizedQuery
-      ? savedProjects.filter((project) =>
-          project.projectName.toLocaleLowerCase("es-AR").includes(normalizedQuery),
-        )
-      : savedProjects;
-    return [...filtered].sort((a, b) =>
-      librarySort === "name"
-        ? a.projectName.localeCompare(b.projectName, "es-AR", { sensitivity: "base" })
-        : Date.parse(b.savedAt) - Date.parse(a.savedAt),
-    );
-  }, [libraryQuery, librarySort, savedProjects]);
-  const visibleStarterDesigns = useMemo(() => {
-    const query = designQuery.trim().toLocaleLowerCase("es-AR");
-    return STARTER_DESIGNS.filter((design) =>
-      (designCategory === "all" || design.category === designCategory) &&
-      (!query || `${design.name} ${design.description}`.toLocaleLowerCase("es-AR").includes(query)),
-    );
-  }, [designCategory, designQuery]);
+  const visibleLibraryProjects = useMemo(
+    () => getVisibleLibraryProjects(savedProjects, libraryQuery, librarySort),
+    [libraryQuery, librarySort, savedProjects],
+  );
+  const visibleStarterDesigns = useMemo(
+    () => getVisibleStarterDesigns(STARTER_DESIGNS, designQuery, designCategory),
+    [designCategory, designQuery],
+  );
   const selectedStarterDesign =
-    STARTER_DESIGNS.find((design) => design.id === selectedDesignId) ??
-    STARTER_DESIGNS[0];
+    getSelectedStarterDesign(STARTER_DESIGNS, selectedDesignId);
   const selectedHole = holes.find((hole) => hole.id === selectedHoleId) ?? null;
   const selectedObject =
     objects.find((object) => object.id === selectedObjectId) ?? null;
@@ -2983,143 +2977,23 @@ export default function Home() {
   return (
     <div className="app-shell">
       {!showStart && (
-      <header
-        className="topbar"
-        aria-hidden={modalOpen || undefined}
-        inert={modalOpen ? true : undefined}
-      >
-        <a
-          className="brand"
-          href="#"
-          aria-label="FORJA, inicio"
-          onClick={(event) => {
-            event.preventDefault();
-            setShowStart(true);
-          }}
-        >
-          <span className="brand-logo" aria-hidden="true" />
-          <small className="brand-tagline">Diseñá · validá · fabricá</small>
-        </a>
-        <nav className="top-actions" aria-label="Acciones del proyecto">
-          <div className="workflow-steps" aria-label="Flujo de creación">
-            <span className="active">Diseño</span>
-            <span className={showReview ? "active" : ""}>Comprobación</span>
-            <span className={canExport ? "active" : ""}>Exportación</span>
-          </div>
-          <div className="topbar-utility">
-            <span className={`autosave-status ${autoSaveState}`} aria-live="polite">
-              {autoSaveState === "saving" ? "Guardando" : autoSaveState === "saved" ? "Guardado" : "Auto"}
-            </span>
-            <button
-              className="button ghost save-trigger"
-              onClick={saveProject}
-            >
-              Guardar
-            </button>
-
-            <details className="project-actions-menu">
-              <summary
-                aria-label="Más acciones del proyecto"
-                title="Más acciones"
-              >
-                <span className="project-actions-label">
-                  Más
-                </span>
-
-                <span
-                  className="project-actions-chevron"
-                  aria-hidden="true"
-                >
-                  ⌄
-                </span>
-              </summary>
-
-              <div className="project-actions-popover">
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    openTutorial();
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-                  }}
-                >
-                  <i aria-hidden="true">
-                    {tutorialCompleted ? "✓" : "?"}
-                  </i>
-
-                  <span>
-                    <strong>Aprender</strong>
-                    <small>Volver a ver el tutorial</small>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    setShowLibrary(true);
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-                  }}
-                >
-                  <i aria-hidden="true">▣</i>
-
-                  <span>
-                    <strong>Mis proyectos</strong>
-                    <small>
-                      {savedProjects.length > 0
-                        ? `${savedProjects.length} guardados`
-                        : "Abrir biblioteca personal"}
-                    </small>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    setShowDesignGallery(true);
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-                  }}
-                >
-                  <i aria-hidden="true">◆</i>
-
-                  <span>
-                    <strong>Diseños</strong>
-                    <small>Explorar modelos de la biblioteca</small>
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    setShowFeedback(true);
-                    event.currentTarget
-                      .closest("details")
-                      ?.removeAttribute("open");
-                  }}
-                >
-                  <i aria-hidden="true">!</i>
-
-                  <span>
-                    <strong>Reportar</strong>
-                    <small>Contarnos un problema o sugerencia</small>
-                  </span>
-                </button>
-              </div>
-            </details>
-          </div>
-          <button
-            className="button primary compact"
-            onClick={handleStatusAction}
-            disabled={Boolean(exporting)}
-          >
-            {topbarPrimaryLabel}
-          </button>
-        </nav>
-      </header>
+        <EditorHeader
+          modalOpen={modalOpen}
+          showReview={showReview}
+          canExport={canExport}
+          autoSaveState={autoSaveState}
+          tutorialCompleted={tutorialCompleted}
+          savedProjectCount={savedProjects.length}
+          topbarPrimaryLabel={topbarPrimaryLabel}
+          primaryActionDisabled={Boolean(exporting)}
+          onHome={() => setShowStart(true)}
+          onSave={saveProject}
+          onTutorial={openTutorial}
+          onLibrary={() => setShowLibrary(true)}
+          onDesignGallery={() => setShowDesignGallery(true)}
+          onFeedback={() => setShowFeedback(true)}
+          onPrimaryAction={handleStatusAction}
+        />
       )}
 
       <input
@@ -3616,109 +3490,23 @@ export default function Home() {
           id="editor-left-panel"
           className={`left-panel ${templateId === "free" ? "free-left-panel" : ""}`}
         >
-          {templateId === "free" && !showReview ? (
-            <div className="free-project-bar">
-              <div className="free-project-title">
-                <span>EDITOR LIBRE</span>
-                <input
-                  type="text"
-                  value={projectName}
-                  maxLength={60}
-                  onInput={(event) => {
-                    setProjectName(event.currentTarget.value);
-                    setSavedMessage("");
-                  }}
-                  aria-label="Nombre del proyecto"
-                  placeholder="Mi diseño"
-                  spellCheck={false}
-                />
-              </div>
-              <details className="free-template-switcher">
-                <summary>Cambiar plantilla</summary>
-                <div>
-                  {TEMPLATES.filter((item) => item.id !== "free").map((item) => (
-                    <button onClick={() => chooseTemplate(item.id)} key={item.id}>
-                      <i>{item.icon}</i>
-                      <span>{item.shortName}</span>
-                    </button>
-                  ))}
-                </div>
-              </details>
-              <div className="free-history-tools" aria-label="Historial de cambios">
-                <button
-                  onClick={undoObjects}
-                  disabled={!historyAvailability.canUndo}
-                  title="Deshacer (Ctrl+Z)"
-                >
-                  ↶ <span>Deshacer</span>
-                </button>
-                <button
-                  onClick={redoObjects}
-                  disabled={!historyAvailability.canRedo}
-                  title="Rehacer (Ctrl+Y)"
-                >
-                  ↷ <span>Rehacer</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="project-overview">
-              <label className="project-name-field compact-project-name">
-                <span>
-                  <strong>Archivo</strong>
-                  <small>{exportName}</small>
-                </span>
-                <span className="file-name-control">
-                  <input
-                    type="text"
-                    value={projectName}
-                    maxLength={60}
-                    onInput={(event) => {
-                      setProjectName(event.currentTarget.value);
-                      setSavedMessage("");
-                    }}
-                    aria-label="Nombre personalizado del archivo"
-                    placeholder="mi-pieza-forja"
-                    spellCheck={false}
-                  />
-                  <em>.3D</em>
-                </span>
-              </label>
-
-              <label className="template-compact-select">
-                <span>
-                  <strong>Plantilla</strong>
-                  <small>{template.shortName}</small>
-                </span>
-                <select
-                  value={templateId}
-                  onChange={(event) =>
-                    chooseTemplate(event.currentTarget.value as TemplateId)
-                  }
-                  aria-label="Cambiar plantilla"
-                >
-                  {TEMPLATES.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.shortName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="project-overview-actions">
-                {TEMPLATES.filter((item) => item.id !== templateId).map((item) => (
-                  <button
-                    type="button"
-                    onClick={() => chooseTemplate(item.id)}
-                    key={item.id}
-                    title={`Usar ${item.name}`}
-                  >
-                    <span aria-hidden="true">{item.icon}</span>
-                    {item.shortName}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+          <ProjectOverviewPanel
+            templateId={templateId}
+            template={template}
+            templates={TEMPLATES}
+            showReview={showReview}
+            projectName={projectName}
+            exportName={exportName}
+            canUndo={historyAvailability.canUndo}
+            canRedo={historyAvailability.canRedo}
+            onProjectNameChange={(value) => {
+              setProjectName(value);
+              setSavedMessage("");
+            }}
+            onChooseTemplate={chooseTemplate}
+            onUndo={undoObjects}
+            onRedo={redoObjects}
+          />
 
           <section className="piece-context-panel" aria-labelledby="piece-context-title">
             <span className="eyebrow">Diseño</span>
