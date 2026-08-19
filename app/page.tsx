@@ -60,6 +60,11 @@ import {
 } from "../lib/shape-library";
 import LandingPage from "./components/LandingPage";
 import DesignGeometryPreview from "./components/DesignGeometryPreview";
+import FallbackModel from "./components/editor/FallbackModel";
+import InspectorNumberField from "./components/editor/InspectorNumberField";
+import MovePad from "./components/editor/MovePad";
+import ParameterField from "./components/editor/ParameterField";
+import PieceStatusPanel from "./components/editor/PieceStatusPanel";
 import { useModalFocus } from "./hooks/useModalFocus";
 import type {
   DesignCategory,
@@ -705,166 +710,6 @@ function clampValue(value: number, minimum: number, maximum: number) {
   return Math.min(maximum, Math.max(minimum, value));
 }
 
-function MovePad({
-  selected,
-  x,
-  z,
-  onMoveBy,
-  onCenter,
-}: {
-  selected: boolean;
-  x: number;
-  z: number;
-  onMoveBy: (deltaX: number, deltaZ: number) => void;
-  onCenter: () => void;
-}) {
-  const [step, setStep] = useState(1);
-  return (
-    <div className={`move-console ${selected ? "" : "disabled"}`}>
-      <div className="move-readout">
-        <span>Mover seleccionado</span>
-        <strong>{selected ? `X ${x.toFixed(1)} · Z ${z.toFixed(1)}` : "Elegí un elemento"}</strong>
-        <label>
-          Paso
-          <select
-            value={step}
-            onChange={(event) => setStep(Number(event.target.value))}
-            disabled={!selected}
-            aria-label="Paso de movimiento en milímetros"
-          >
-            <option value="0.5">0,5 mm</option>
-            <option value="1">1 mm</option>
-            <option value="5">5 mm</option>
-          </select>
-        </label>
-      </div>
-      <div className="direction-pad" aria-label="Mover elemento con flechas">
-        <button disabled={!selected} onClick={() => onMoveBy(0, step)} aria-label="Mover hacia arriba">↑</button>
-        <button disabled={!selected} onClick={() => onMoveBy(-step, 0)} aria-label="Mover a la izquierda">←</button>
-        <button disabled={!selected} onClick={onCenter} className="center-button" aria-label="Centrar elemento">●</button>
-        <button disabled={!selected} onClick={() => onMoveBy(step, 0)} aria-label="Mover a la derecha">→</button>
-        <button disabled={!selected} onClick={() => onMoveBy(0, -step)} aria-label="Mover hacia abajo">↓</button>
-      </div>
-    </div>
-  );
-}
-
-function ParameterField({
-  field,
-  value,
-  featured = false,
-  onChange,
-}: {
-  field: ParameterDefinition;
-  value: number;
-  featured?: boolean;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className={`field ${featured ? "primary-measure" : ""}`}>
-      <span>
-        <strong>{field.label}</strong>
-        <small>{field.hint}</small>
-      </span>
-      <span className="number-control">
-        <input
-          type="number"
-          min={field.min}
-          max={field.max}
-          step={field.step}
-          value={value}
-          onInput={(event) => onChange(event.currentTarget.value)}
-          aria-label={`${field.label} en milímetros`}
-        />
-        <em>mm</em>
-      </span>
-    </label>
-  );
-}
-
-function PieceStatusPanel({
-  statusLabel,
-  statusTone,
-  detail,
-  nextStep,
-  errorCount,
-  warningCount,
-  actionLabel,
-  actionDisabled = false,
-  onAction,
-}: {
-  statusLabel: string;
-  statusTone: "ready" | "error" | "idle";
-  detail: string;
-  nextStep: string;
-  errorCount: number;
-  warningCount: number;
-  actionLabel: string;
-  actionDisabled?: boolean;
-  onAction: () => void;
-}) {
-  return (
-    <section className={`piece-status-panel ${statusTone}`} aria-label="Estado de la pieza">
-      <div className="piece-status-main">
-        <span aria-hidden="true">{statusTone === "ready" ? "✓" : statusTone === "error" ? "!" : "+"}</span>
-        <div>
-          <strong>{statusLabel}</strong>
-          <small>{detail}</small>
-        </div>
-      </div>
-      <div className="piece-status-meta" aria-label="Problemas detectados">
-        <span>{errorCount} errores</span>
-        <span>{warningCount} advertencias</span>
-      </div>
-      <div className="piece-next-step">
-        <span>{nextStep}</span>
-        <button type="button" onClick={onAction} disabled={actionDisabled}>
-          {actionLabel}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function InspectorNumberField({
-  label,
-  value,
-  unit,
-  min,
-  max,
-  step,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  unit?: "mm" | "°";
-  min?: number | string;
-  max?: number | string;
-  step?: number | string;
-  disabled?: boolean;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="inspector-number-field">
-      <span>{label}</span>
-      <span className="inspector-number-control">
-        <input
-          type="number"
-          value={value}
-          min={min}
-          max={max}
-          step={step}
-          disabled={disabled}
-          onInput={(event) => onChange(Number(event.currentTarget.value))}
-          aria-label={unit ? `${label} en ${unit}` : label}
-        />
-        {unit && <em>{unit}</em>}
-      </span>
-    </label>
-  );
-}
-
 function FacePlacementEditor({
   holes,
   selectedId,
@@ -1080,52 +925,6 @@ function ObjectPlacementEditor({
           if (selectedObject) onMove(selectedObject.id, 0, 0);
         }}
       />
-    </div>
-  );
-}
-
-function FallbackModel({
-  templateId,
-  parameters,
-  onRetry,
-}: {
-  templateId: TemplateId;
-  parameters: ModelParameters;
-  onRetry: () => void;
-}) {
-  return (
-    <div className="fallback-preview">
-      {templateId === "box" && (
-        <div className="fallback-box" aria-hidden="true">
-          <i className="face inner" />
-          <i className="face back" />
-          <i className="face left" />
-          <i className="face right" />
-          <i className="face front" />
-        </div>
-      )}
-      {templateId === "bracket" && (
-        <div className="fallback-bracket" aria-hidden="true">
-          <i className="vertical" />
-          <i className="horizontal" />
-          <b className="hole h1" />
-          <b className="hole h2" />
-          <b className="hole h3" />
-          <b className="hole h4" />
-        </div>
-      )}
-      {(templateId === "plate" || templateId === "free") && (
-        <div className="fallback-plate" aria-hidden="true">
-          <i /><i /><i /><i />
-        </div>
-      )}
-      <div className="fallback-message">
-        <strong>El visor 3D no pudo iniciar</strong>
-        <span>
-          Vista simplificada · {parameters.width} × {parameters.depth} mm
-        </span>
-        <button type="button" onClick={onRetry}>Reintentar visor 3D</button>
-      </div>
     </div>
   );
 }
