@@ -66,11 +66,15 @@ import {
 } from "../lib/shape-library";
 import LandingPage from "./components/LandingPage";
 import DesignGeometryPreview from "./components/DesignGeometryPreview";
+import CutoutsPanel from "./components/editor/CutoutsPanel";
 import EditorHeader from "./components/editor/EditorHeader";
 import FabricationSettingsPanel from "./components/editor/FabricationSettingsPanel";
 import FallbackModel from "./components/editor/FallbackModel";
 import InspectorNumberField from "./components/editor/InspectorNumberField";
 import MovePad from "./components/editor/MovePad";
+import ObjectInspectorPanel from "./components/editor/ObjectInspectorPanel";
+import ObjectLayersPanel from "./components/editor/ObjectLayersPanel";
+import ObjectsToolsPanel from "./components/editor/ObjectsToolsPanel";
 import PieceContextPanel from "./components/editor/PieceContextPanel";
 import PieceStatusPanel from "./components/editor/PieceStatusPanel";
 import ProjectOverviewPanel from "./components/editor/ProjectOverviewPanel";
@@ -3562,348 +3566,60 @@ export default function Home() {
             onFeatureChange={updateFeature}
           />
 
-          {templateId !== "free" && (
-          <details className="tool-section">
-            <summary>
-              <span><b>03</b> Agujeros y recortes</span>
-              <small>{holes.length}</small>
-            </summary>
-            {(templateId === "box" || templateId === "bracket") && (
-              <div className="face-tabs" aria-label="Cara donde editar recortes">
-                <button
-                  className={cutoutFace === "base" ? "active" : ""}
-                  onClick={() => chooseCutoutFace("base")}
-                >
-                  Base
-                </button>
-                <button
-                  className={cutoutFace === "front" ? "active" : ""}
-                  onClick={() => chooseCutoutFace("front")}
-                >
-                  {templateId === "bracket" ? "Ala vertical" : "Frente"}
-                </button>
-              </div>
-            )}
-            <div className="tool-palette" aria-label="Tipo de recorte a colocar">
-              <button
-                className={cutoutTool === "round" ? "active" : ""}
-                onClick={() =>
-                  setCutoutTool((current) => current === "round" ? null : "round")
-                }
-                aria-pressed={cutoutTool === "round"}
-              >
-                <i>○</i>
-                <span><strong>Agujero</strong><small>Circular</small></span>
-              </button>
-              <button
-                className={cutoutTool === "rect" ? "active" : ""}
-                onClick={() =>
-                  setCutoutTool((current) => current === "rect" ? null : "rect")
-                }
-                aria-pressed={cutoutTool === "rect"}
-              >
-                <i>□</i>
-                <span><strong>Recorte</strong><small>Rectangular</small></span>
-              </button>
-            </div>
-            <FacePlacementEditor
-              holes={visibleHoles}
-              selectedId={selectedHoleId}
-              width={faceWidth}
-              height={faceHeight}
-              placementTool={cutoutTool}
-              roundSurface={false}
-              onPlace={(kind, x, z) => addHoleAt(kind, cutoutFace, x, z)}
-              onSelect={setSelectedHoleId}
-              onMove={moveHole}
-            />
-            {selectedFaceHole && (
-              <div className="property-editor">
-                <div className="property-heading">
-                  <span>Ajuste preciso</span>
-                  <small>
-                    {selectedFaceHole.kind === "round" ? "Agujero circular" : "Recorte rectangular"}
-                  </small>
-                </div>
-                <div className="mini-grid two">
-                  <label>
-                    <span>Posición X</span>
-                    <input
-                      type="number"
-                      value={selectedFaceHole.x}
-                      step="0.5"
-                      onInput={(event) =>
-                        updateHole("x", Number(event.currentTarget.value))
-                      }
-                      aria-label="Posición X del recorte"
-                    />
-                  </label>
-                  <label>
-                    <span>Posición Z</span>
-                    <input
-                      type="number"
-                      value={selectedFaceHole.z}
-                      step="0.5"
-                      onInput={(event) =>
-                        updateHole("z", Number(event.currentTarget.value))
-                      }
-                      aria-label="Posición Z del recorte"
-                    />
-                  </label>
-                  <label>
-                    <span>{selectedFaceHole.kind === "round" ? "Diámetro" : "Ancho"}</span>
-                    <input
-                      type="number"
-                      value={selectedFaceHole.width}
-                      min="1"
-                      step="0.5"
-                      onInput={(event) =>
-                        updateHole("width", Number(event.currentTarget.value))
-                      }
-                      aria-label="Ancho o diámetro del recorte"
-                    />
-                  </label>
-                  {selectedFaceHole.kind === "rect" && (
-                    <label>
-                      <span>Alto</span>
-                      <input
-                        type="number"
-                        value={selectedFaceHole.height}
-                        min="1"
-                        step="0.5"
-                        onInput={(event) =>
-                          updateHole("height", Number(event.currentTarget.value))
-                        }
-                        aria-label="Alto del recorte"
-                      />
-                    </label>
-                  )}
-                </div>
-                <div className="editor-actions">
-                  <button onClick={duplicateSelectedHole}>Duplicar</button>
-                  <button className="danger-action" onClick={deleteSelectedHole}>
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            )}
-          </details>
-          )}
+          <CutoutsPanel
+            templateId={templateId}
+            holesCount={holes.length}
+            cutoutFace={cutoutFace}
+            cutoutTool={cutoutTool}
+            selectedFaceHole={selectedFaceHole}
+            placementEditor={
+              <FacePlacementEditor
+                holes={visibleHoles}
+                selectedId={selectedHoleId}
+                width={faceWidth}
+                height={faceHeight}
+                placementTool={cutoutTool}
+                roundSurface={false}
+                onPlace={(kind, x, z) => addHoleAt(kind, cutoutFace, x, z)}
+                onSelect={setSelectedHoleId}
+                onMove={moveHole}
+              />
+            }
+            onChooseFace={chooseCutoutFace}
+            onToggleTool={(tool) =>
+              setCutoutTool((current) => current === tool ? null : tool)
+            }
+            onUpdateHole={updateHole}
+            onDuplicateSelectedHole={duplicateSelectedHole}
+            onDeleteSelectedHole={deleteSelectedHole}
+          />
 
-          <details
-            className="tool-section"
+          <ObjectsToolsPanel
+            templateId={templateId}
+            objectsCount={objects.length}
             open={openToolSections.freeTools}
-            onToggle={(event) => {
-              const open = event.currentTarget.open;
+            freeEditorView={freeEditorView}
+            showDesignGallery={showDesignGallery}
+            freeAddOperation={freeAddOperation}
+            canUseCutouts={visibleObjects.some(
+              (object) => object.operation !== "hole",
+            )}
+            onOpenChange={(open) => {
               setOpenToolSections((current) =>
                 current.freeTools === open
                   ? current
                   : { ...current, freeTools: open },
               );
             }}
+            onFreeEditorViewChange={setFreeEditorView}
+            onOpenDesignGallery={() => setShowDesignGallery(true)}
+            onFreeAddOperationChange={setFreeAddOperation}
+            onBeginShapeDrag={beginShapeDrag}
+            onShapeDragEnd={() => setIsDraggingShape(false)}
+            onAddFreeObject={addFreeObject}
+            onAddFreePreset={addFreePreset}
+            onAddObject={addObject}
           >
-            <summary>
-              <span><b>{templateId === "free" ? "02" : "04"}</b> {
-                templateId === "free" ? "Herramientas" : "Figuras y texto"
-              }</span>
-              <small>{objects.length}</small>
-            </summary>
-            {templateId === "free" ? (
-              <div className="free-workbench">
-                <div className="free-editor-nav" aria-label="Secciones del editor libre">
-                  {([
-                    ["create", "+", "Biblioteca"],
-                    ["designs", "◆", "Diseños"],
-                    ["objects", "≡", "Capas"],
-                  ] as const).map(([view, icon, label]) => (
-                    <button
-                      key={view}
-                      className={
-                        view === "designs"
-                          ? showDesignGallery ? "active" : ""
-                          : freeEditorView === view ? "active" : ""
-                      }
-                      onClick={() =>
-                        view === "designs"
-                          ? setShowDesignGallery(true)
-                          : setFreeEditorView(view)
-                      }
-                      disabled={view === "objects" && objects.length === 0}
-                      aria-label={`${label}${view === "objects" ? `, ${objects.length} objetos` : ""}`}
-                      aria-pressed={
-                        view === "designs" ? showDesignGallery : freeEditorView === view
-                      }
-                      title={label}
-                    >
-                      <i>{icon}</i>
-                      <span>{label}</span>
-                      {view === "objects" && objects.length > 0 && (
-                        <small>{objects.length}</small>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {freeEditorView === "create" && (
-                  <div className="free-create-panel">
-                    <div className="free-panel-intro">
-                      <strong>Figuras básicas</strong>
-                      <small>Arrastrá al lienzo o tocá para agregar al centro.</small>
-                    </div>
-                    <div className="free-operation-toggle" aria-label="Tipo de figura">
-                      <button
-                        className={freeAddOperation === "solid" ? "active solid" : ""}
-                        onClick={() => setFreeAddOperation("solid")}
-                        aria-pressed={freeAddOperation === "solid"}
-                      >
-                        <i className="solid-dot" />
-                        <span><strong>Sólido</strong><small>Agrega material</small></span>
-                      </button>
-                      <button
-                        className={freeAddOperation === "hole" ? "active hole" : ""}
-                        onClick={() => setFreeAddOperation("hole")}
-                        disabled={
-                          !visibleObjects.some(
-                            (object) => object.operation !== "hole",
-                          )
-                        }
-                        aria-pressed={freeAddOperation === "hole"}
-                      >
-                        <i className="hole-dot" />
-                        <span><strong>Recorte</strong><small>Quita material</small></span>
-                      </button>
-                    </div>
-                    <div
-                      className={`free-shape-catalog ${
-                        freeAddOperation === "hole" ? "is-hole" : ""
-                      }`}
-                      aria-label={
-                        freeAddOperation === "hole"
-                          ? "Agregar recorte"
-                          : "Agregar sólido"
-                      }
-                    >
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "cube")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("cube")}
-                      >
-                        <i>{freeAddOperation === "hole" ? "□" : "■"}</i>
-                        <span><strong>Cubo</strong><small>Cajas y bases</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "cylinder")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("cylinder")}
-                      >
-                        <i>{freeAddOperation === "hole" ? "○" : "●"}</i>
-                        <span><strong>Cilindro</strong><small>Tubos y perforaciones</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "sphere")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("sphere")}
-                      >
-                        <i>{freeAddOperation === "hole" ? "◎" : "◉"}</i>
-                        <span><strong>Esfera</strong><small>Volúmenes redondos</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "cone")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("cone")}
-                      >
-                        <i>▲</i>
-                        <span><strong>Cono</strong><small>Puntas y embudos</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "tube")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("tube")}
-                      >
-                        <i>◍</i>
-                        <span><strong>Tubo</strong><small>Aros y separadores</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "wedge")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("wedge")}
-                      >
-                        <i>◢</i>
-                        <span><strong>Cuña</strong><small>Rampas y apoyos</small></span>
-                      </button>
-                      <button
-                        draggable
-                        onDragStart={(event) => beginShapeDrag(event, "text")}
-                        onDragEnd={() => setIsDraggingShape(false)}
-                        onClick={() => addFreeObject("text")}
-                      >
-                        <i>T</i>
-                        <span><strong>Texto</strong><small>Relieve o grabado</small></span>
-                      </button>
-                    </div>
-                    {!visibleObjects.some(
-                      (object) => object.operation !== "hole",
-                    ) && (
-                        <p className="free-context-note">
-                          La opción Recorte se habilita cuando agregues el primer
-                          sólido.
-                        </p>
-                    )}
-                    <div className="free-preset-section">
-                      <div>
-                        <strong>Piezas rápidas</strong>
-                        <small>Listas para editar</small>
-                      </div>
-                      <div className="free-preset-grid">
-                        <button onClick={() => addFreePreset("plate")}>
-                          <i>▬</i><span>Placa</span>
-                        </button>
-                        <button onClick={() => addFreePreset("post")}>
-                          <i>▮</i><span>Poste</span>
-                        </button>
-                        <button onClick={() => addFreePreset("washer")}>
-                          <i>◎</i><span>Arandela</span>
-                        </button>
-                        <button onClick={() => addFreePreset("spacer")}>
-                          <i>◌</i><span>Separador</span>
-                        </button>
-                        <button onClick={() => addFreePreset("mounting-tab")}>
-                          <i>◫</i><span>Oreja</span>
-                        </button>
-                        <button onClick={() => addFreePreset("foot")}>
-                          <i>●</i><span>Pata</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {freeEditorView === "designs" && (
-                  <div className="free-designs-panel">
-                    <div className="free-panel-intro">
-                      <strong>Galería de diseños</strong>
-                      <small>Elegí una pieza editable si no querés empezar desde cero.</small>
-                    </div>
-                    <button className="open-design-gallery" onClick={() => setShowDesignGallery(true)}>
-                      Abrir diseños editables
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="shape-palette" aria-label="Agregar figuras y texto">
-                <button onClick={() => addObject("cube")}><i>■</i><span>Cubo</span></button>
-                <button onClick={() => addObject("cylinder")}><i>●</i><span>Cilindro</span></button>
-                <button onClick={() => addObject("sphere")}><i>◉</i><span>Esfera</span></button>
-                <button onClick={() => addObject("text")}><i>T</i><span>Texto</span></button>
-              </div>
-            )}
             {templateId !== "free" && (
             <ObjectPlacementEditor
               objects={objects}
@@ -3917,363 +3633,52 @@ export default function Home() {
             {objects.length > 0 ? (
               <>
                 {templateId === "free" && freeEditorView === "objects" ? (
-                  <div className="free-object-list" aria-label="Objetos del modelo">
-                    <div className="free-list-heading">
-                      <span>
-                        {visibleObjects.filter(
-                          (object) => object.operation !== "hole",
-                        ).length} sólidos
-                        <i>·</i>
-                        {visibleObjects.filter(
-                          (object) => object.operation === "hole",
-                        ).length} recortes visibles
-                      </span>
-                      <button onClick={() => setFreeEditorView("create")}>+ Agregar</button>
-                    </div>
-                    {objects.map((object, index) => (
-                      <div
-                        className={`free-layer-row ${
-                          selectedObjectIds.includes(object.id) ? "active" : ""
-                        } ${object.hidden ? "is-hidden" : ""} ${
-                          object.operation === "hole" ? "is-hole" : "is-solid"
-                        }`}
-                        key={object.id}
-                      >
-                        <button
-                          className="free-layer-main"
-                          onClick={(event) =>
-                            selectFreeObject(
-                              object.id,
-                              event.shiftKey || event.ctrlKey || event.metaKey,
-                            )
-                          }
-                        >
-                          <i
-                            className={
-                              object.operation === "hole"
-                                ? "hole-dot"
-                                : "solid-dot"
-                            }
-                          />
-                          <span>
-                            <strong>{object.name}</strong>
-                            <small>
-                              {object.operation === "hole" ? "Recorte" : "Sólido"}
-                              {object.hidden ? " · oculto" : ""}
-                            </small>
-                          </span>
-                        </button>
-                        <div className="free-layer-actions">
-                          <button
-                            onClick={() => toggleObjectState(object.id, "hidden")}
-                            title={object.hidden ? "Mostrar objeto" : "Ocultar objeto"}
-                            aria-label={object.hidden ? "Mostrar objeto" : "Ocultar objeto"}
-                          >
-                            {object.hidden ? "◌" : "◉"}
-                          </button>
-                          <button
-                            onClick={() => toggleObjectState(object.id, "locked")}
-                            title={object.locked ? "Desbloquear objeto" : "Bloquear objeto"}
-                            aria-label={object.locked ? "Desbloquear objeto" : "Bloquear objeto"}
-                          >
-                            {object.locked ? "▣" : "▢"}
-                          </button>
-                          <button
-                            onClick={() => moveObjectInStack(object.id, "up")}
-                            disabled={index === 0}
-                            title="Subir capa"
-                            aria-label={`Subir ${object.name}`}
-                          >
-                            ↑
-                          </button>
-                          <button
-                            onClick={() => moveObjectInStack(object.id, "down")}
-                            disabled={index === objects.length - 1}
-                            title="Bajar capa"
-                            aria-label={`Bajar ${object.name}`}
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <ObjectLayersPanel
+                    templateId={templateId}
+                    objects={objects}
+                    visibleSolidCount={
+                      visibleObjects.filter(
+                        (object) => object.operation !== "hole",
+                      ).length
+                    }
+                    visibleCutoutCount={
+                      visibleObjects.filter(
+                        (object) => object.operation === "hole",
+                      ).length
+                    }
+                    selectedObjectId={selectedObjectId}
+                    selectedObjectIds={selectedObjectIds}
+                    onAddObject={() => setFreeEditorView("create")}
+                    onSelectFreeObject={selectFreeObject}
+                    onSelectObject={setSelectedObjectId}
+                    onToggleObjectState={toggleObjectState}
+                    onMoveObjectInStack={moveObjectInStack}
+                  />
                 ) : templateId !== "free" ? (
-                  <div className="object-tabs wide" aria-label="Objetos agregados">
-                    {objects.map((object) => (
-                      <button
-                        className={object.id === selectedObjectId ? "active" : ""}
-                        onClick={() => setSelectedObjectId(object.id)}
-                        key={object.id}
-                      >
-                        {object.name}
-                      </button>
-                    ))}
-                  </div>
+                  <ObjectLayersPanel
+                    templateId={templateId}
+                    objects={objects}
+                    visibleSolidCount={0}
+                    visibleCutoutCount={0}
+                    selectedObjectId={selectedObjectId}
+                    selectedObjectIds={selectedObjectIds}
+                    onAddObject={() => setFreeEditorView("create")}
+                    onSelectFreeObject={selectFreeObject}
+                    onSelectObject={setSelectedObjectId}
+                    onToggleObjectState={toggleObjectState}
+                    onMoveObjectInStack={moveObjectInStack}
+                  />
                 ) : null}
                 {selectedObject && template.id !== "free" && (
-                  <div className={`property-editor ${
-                    templateId === "free" ? "free-property-editor" : ""
-                  }`}>
-                    <div className="property-heading">
-                      <span>
-                        {templateId === "free" ? "Propiedades" : "Ajuste preciso"}
-                      </span>
-                      <small>
-                        {templateId === "free"
-                          ? "Valores exactos en milímetros"
-                          : selectedObject.name}
-                      </small>
-                    </div>
-                    {templateId === "free" && (
-                      <label className="select-field compact-select operation-field">
-                        <span>
-                          <strong>Tipo en la pieza</strong>
-                          <small>Sumá material o usalo como recorte</small>
-                        </span>
-                        <select
-                          value={selectedObject.operation ?? "solid"}
-                          onChange={(event) =>
-                            updateObject(
-                              "operation",
-                              event.target.value as ObjectOperation,
-                            )
-                          }
-                          aria-label="Tipo del objeto en la pieza"
-                        >
-                          <option value="solid">Sólido</option>
-                          <option value="hole">Recorte</option>
-                        </select>
-                      </label>
-                    )}
-                    {selectedObject.kind === "text" && (
-                      <label className="text-property">
-                        <span>Contenido</span>
-                        <input
-                          type="text"
-                          value={selectedObject.text ?? ""}
-                          maxLength={20}
-                          onInput={(event) =>
-                            updateObject("text", event.currentTarget.value)
-                          }
-                          aria-label="Contenido del texto 3D"
-                        />
-                      </label>
-                    )}
-                    {templateId === "free" && (
-                      <div className="property-group-label">
-                        <span>
-                          {freeTransformMode === "select"
-                            ? "Propiedades"
-                            : freeTransformMode === "translate"
-                            ? "Posición"
-                            : freeTransformMode === "rotate"
-                            ? "Rotación"
-                            : "Tamaño"}
-                        </span>
-                        <small>
-                          {freeTransformMode === "select"
-                            ? "Seleccioná una herramienta o editá valores"
-                            : freeTransformMode === "scale"
-                            ? "Medidas finales"
-                            : "Ejes X · Y · Z"}
-                        </small>
-                      </div>
-                    )}
-                    <div className="mini-grid two">
-                      {(templateId !== "free" ||
-                        freeTransformMode === "select" ||
-                        freeTransformMode === "translate") && (
-                        <>
-                      <label>
-                        <span>Posición X</span>
-                        <input
-                          type="number"
-                          value={selectedObject.x}
-                          step="0.5"
-                          onInput={(event) =>
-                            updateObject("x", Number(event.currentTarget.value))
-                          }
-                          aria-label="Posición X del objeto"
-                        />
-                      </label>
-                      <label>
-                        <span>Posición Z</span>
-                        <input
-                          type="number"
-                          value={selectedObject.z}
-                          step="0.5"
-                          onInput={(event) =>
-                            updateObject("z", Number(event.currentTarget.value))
-                          }
-                          aria-label="Posición Z del objeto"
-                        />
-                      </label>
-                      <label>
-                        <span>Altura sobre base</span>
-                        <input
-                          type="number"
-                          value={selectedObject.y}
-                          step="0.5"
-                          onInput={(event) =>
-                            updateObject("y", Number(event.currentTarget.value))
-                          }
-                          aria-label="Altura del objeto sobre la base"
-                        />
-                      </label>
-                        </>
-                      )}
-                      {(templateId !== "free" ||
-                        freeTransformMode === "select" ||
-                        freeTransformMode === "scale") && (
-                        <>
-                      <label>
-                        <span>
-                          {selectedObject.kind === "text"
-                            ? "Tamaño"
-                            : selectedObject.kind === "tube"
-                              ? "Ø exterior"
-                              : selectedObject.kind === "cylinder" ||
-                                  selectedObject.kind === "cone" ||
-                                  selectedObject.kind === "sphere"
-                                ? "Diámetro"
-                                : "Ancho"}
-                        </span>
-                        <input
-                          type="number"
-                          value={selectedObject.width}
-                          min="1"
-                          step="0.5"
-                          onInput={(event) =>
-                            updateObject("width", Number(event.currentTarget.value))
-                          }
-                          aria-label="Ancho o diámetro del objeto"
-                        />
-                      </label>
-                      {(selectedObject.kind === "cube" ||
-                        selectedObject.kind === "wedge" ||
-                        selectedObject.kind === "tube") && (
-                        <label>
-                          <span>
-                            {selectedObject.kind === "tube"
-                              ? "Ø interior"
-                              : "Profundidad"}
-                          </span>
-                          <input
-                            type="number"
-                            value={selectedObject.depth}
-                            min={selectedObject.kind === "tube" ? 0.5 : 1}
-                            max={
-                              selectedObject.kind === "tube"
-                                ? Math.max(0.5, selectedObject.width - 0.5)
-                                : undefined
-                            }
-                            step="0.5"
-                            onInput={(event) =>
-                              updateObject("depth", Number(event.currentTarget.value))
-                            }
-                            aria-label="Profundidad del objeto"
-                          />
-                        </label>
-                      )}
-                      {selectedObject.kind !== "sphere" && (
-                        <label>
-                          <span>
-                            {selectedObject.kind === "text" ? "Relieve" : "Altura"}
-                          </span>
-                          <input
-                            type="number"
-                            value={selectedObject.height}
-                            min="0.6"
-                            step="0.2"
-                            onInput={(event) =>
-                              updateObject("height", Number(event.currentTarget.value))
-                            }
-                          aria-label="Altura del objeto"
-                        />
-                      </label>
-                      )}
-                        </>
-                      )}
-                      {(templateId !== "free" ||
-                        freeTransformMode === "select" ||
-                        freeTransformMode === "rotate") && (
-                        <>
-                      {selectedObject.kind !== "sphere" && (
-                        <label>
-                          <span>Rotación Y</span>
-                          <input
-                            type="number"
-                            value={selectedObject.rotation}
-                            step="5"
-                            onInput={(event) =>
-                              updateObject(
-                                "rotation",
-                                Number(event.currentTarget.value),
-                              )
-                            }
-                            aria-label="Rotación del objeto"
-                          />
-                        </label>
-                      )}
-                      {templateId === "free" && selectedObject.kind !== "sphere" && (
-                        <>
-                          <label>
-                            <span>Rotación X</span>
-                            <input
-                              type="number"
-                              value={selectedObject.rotationX ?? 0}
-                              step="5"
-                              onInput={(event) =>
-                                updateObject(
-                                  "rotationX",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                              aria-label="Rotación X del objeto"
-                            />
-                          </label>
-                          <label>
-                            <span>Rotación Z</span>
-                            <input
-                              type="number"
-                              value={selectedObject.rotationZ ?? 0}
-                              step="5"
-                              onInput={(event) =>
-                                updateObject(
-                                  "rotationZ",
-                                  Number(event.currentTarget.value),
-                                )
-                              }
-                              aria-label="Rotación Z del objeto"
-                            />
-                          </label>
-                        </>
-                      )}
-                        </>
-                      )}
-                    </div>
-                    {templateId === "free" &&
-                      (freeTransformMode === "select" ||
-                        freeTransformMode === "translate") && (
-                      <div className="free-quick-actions">
-                        <button onClick={() => updateObject("y", 0)}>Apoyar en piso</button>
-                        <button
-                          onClick={() =>
-                            updateObjectById(selectedObject.id, { x: 0, z: 0 })
-                          }
-                        >
-                          Centrar X/Z
-                        </button>
-                      </div>
-                    )}
-                    <div className="editor-actions">
-                      <button onClick={duplicateSelectedObject}>Duplicar</button>
-                      <button className="danger-action" onClick={deleteSelectedObject}>
-                        Eliminar
-                      </button>
-                    </div>
-                  </div>
+                  <ObjectInspectorPanel
+                    templateId={templateId}
+                    selectedObject={selectedObject}
+                    freeTransformMode={freeTransformMode}
+                    onUpdateObject={updateObject}
+                    onUpdateObjectById={updateObjectById}
+                    onDuplicateSelectedObject={duplicateSelectedObject}
+                    onDeleteSelectedObject={deleteSelectedObject}
+                  />
                 )}
               </>
             ) : (
@@ -4290,7 +3695,7 @@ export default function Home() {
                 </p>
               </div>
             )}
-          </details>
+          </ObjectsToolsPanel>
 
           {(templateId !== "free" || objects.length > 0) && (
             <button
