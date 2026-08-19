@@ -44,6 +44,60 @@ test("editor status exposes export as final action when review is valid", () => 
   assert.equal(status.topbarPrimaryLabel, "Generando…");
 });
 
+test("editor status routes valid geometry through review before export", () => {
+  const status = getEditorStatus({
+    templateId: "plate",
+    validation: { errors: [], warnings: [] },
+    hasPrintableGeometry: true,
+    showReview: false,
+    exporting: null,
+  });
+
+  assert.equal(status.isValid, true);
+  assert.equal(status.canExport, true);
+  assert.equal(status.statusTone, "ready");
+  assert.equal(status.nextStepLabel, "Próximo paso: abrí Comprobación.");
+  assert.equal(status.statusActionLabel, "Comprobar");
+  assert.equal(status.topbarPrimaryLabel, "Comprobar");
+});
+
+test("editor status blocks export and keeps correction CTA for invalid geometry", () => {
+  const status = getEditorStatus({
+    templateId: "bracket",
+    validation: {
+      errors: ["El espesor debe ser menor que las dos alas del soporte."],
+      warnings: [],
+    },
+    hasPrintableGeometry: true,
+    showReview: true,
+    exporting: null,
+  });
+
+  assert.equal(status.isValid, false);
+  assert.equal(status.canExport, false);
+  assert.equal(status.statusTone, "error");
+  assert.equal(status.geometryStatusLabel, "Necesita corrección");
+  assert.equal(status.exportStatusLabel, "Exportación bloqueada");
+  assert.equal(status.statusActionLabel, "Corregir problemas");
+  assert.equal(status.topbarPrimaryLabel, "Corregir problemas");
+});
+
+test("editor status keeps parametric empty state on measurement adjustment", () => {
+  const status = getEditorStatus({
+    templateId: "box",
+    validation: { errors: [], warnings: [] },
+    hasPrintableGeometry: false,
+    showReview: false,
+    exporting: null,
+  });
+
+  assert.equal(status.canExport, false);
+  assert.equal(status.statusTone, "idle");
+  assert.equal(status.geometryStatusLabel, "Sin sólidos");
+  assert.equal(status.statusActionLabel, "Ajustar medidas");
+  assert.equal(status.topbarPrimaryLabel, "Ajustar medidas");
+});
+
 test("template field groups preserve primary field order and preview values", () => {
   const boxTemplate = TEMPLATES.find((template) => template.id === "box");
   assert.ok(boxTemplate);
