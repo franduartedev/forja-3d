@@ -12,6 +12,10 @@ import type {
 import type * as ThreeTypes from "three";
 import type { OrbitControls as OrbitControlsType } from "three/examples/jsm/controls/OrbitControls.js";
 import type { TransformControls as TransformControlsType } from "three/examples/jsm/controls/TransformControls.js";
+import { getEditorStatus } from "../lib/editor/status";
+import { getTemplateFieldGroups } from "../lib/editor/template-fields";
+import { getEditorValidation } from "../lib/editor/validation";
+import { getValidationIssues } from "../lib/editor/validation-presentation";
 import { safeFileName } from "../lib/file-name";
 import {
   getPrintProfile,
@@ -29,8 +33,6 @@ import {
 import {
   modelPrimarySpec,
   TEMPLATES,
-  validateModel,
-  validateObjects,
 } from "../lib/models";
 import type {
   Cutout,
@@ -450,101 +452,6 @@ function objectKindName(kind: ObjectKind) {
     text: "Texto",
   };
   return names[kind];
-}
-
-function describeValidationIssue(
-  message: string,
-  severity: "error" | "warning",
-) {
-  const recorte = message.match(/recorte\s+(\d+)/i)?.[1];
-  const figura = message.match(/figura\s+(\d+)/i)?.[1];
-  const tubo = message.match(/tubo\s+(\d+)/i)?.[1];
-
-  if (recorte) {
-    return {
-      title: `Recorte ${recorte}`,
-      detail: "El recorte queda fuera de la cara donde intentás usarlo.",
-      action: "Movelo hacia adentro de la cara o reducí su medida.",
-    };
-  }
-  if (figura) {
-    return {
-      title: `Figura ${figura}`,
-      detail: "Una de las figuras tiene una medida o una posición que no se puede usar así.",
-      action: "Seleccioná la figura y corregí sus medidas o posición.",
-    };
-  }
-  if (tubo) {
-    return {
-      title: `Tubo ${tubo}`,
-      detail: "El diámetro interior del tubo es demasiado grande para su borde exterior.",
-      action: "Reducí el diámetro interior o aumentá el exterior.",
-    };
-  }
-  if (message.includes("mayores que cero")) {
-    return {
-      title: "Medidas de la pieza",
-      detail: message,
-      action: "Revisá los campos de medidas y usá valores mayores que 0 mm.",
-    };
-  }
-  if (message.includes("espesor ocupa")) {
-    return {
-      title: "Espesor de pared",
-      detail: "Las paredes ocupan todo el interior de la caja.",
-      action: "Bajá el espesor o aumentá ancho/profundidad.",
-    };
-  }
-  if (message.includes("base debe")) {
-    return {
-      title: "Base de la caja",
-      detail: "La base quedó demasiado gruesa para la altura total.",
-      action: "Reducí el espesor de base o aumentá la altura.",
-    };
-  }
-  if (message.includes("dos alas")) {
-    return {
-      title: "Espesor del soporte",
-      detail: "El espesor es demasiado grande para el tamaño del soporte.",
-      action: "Reducí el espesor o aumentá las alas del soporte.",
-    };
-  }
-  if (message.includes("sólido")) {
-    return {
-      title: "Diseño libre",
-      detail: "Todavía no hay una pieza sólida sobre la que aplicar recortes.",
-      action: "Agregá un sólido y después usá recortes si los necesitás.",
-    };
-  }
-  if (message.includes("soporte debe")) {
-    return {
-      title: "Soporte interno",
-      detail: "El agujero del soporte es demasiado grande para el borde que lo rodea.",
-      action: "Hacé el agujero más chico que el diámetro exterior.",
-    };
-  }
-  if (message.includes("frágil")) {
-    return {
-      title: "Pieza delicada",
-      detail: "Una de las medidas puede dejar la pieza demasiado fina.",
-      action: "Podés exportar igual, pero conviene aumentar ese espesor.",
-    };
-  }
-  if (message.includes("supera el volumen")) {
-    return {
-      title: "Tamaño de la pieza",
-      detail: "La pieza supera el volumen de referencia de impresión.",
-      action: "Reducí sus medidas o revisá si entra en tu impresora.",
-    };
-  }
-  return {
-    title: severity === "error" ? "Revisá la pieza" : "Advertencia",
-    detail: message,
-    action:
-      severity === "error"
-        ? "Corregí este punto antes de exportar."
-        : "Podés exportar, pero conviene revisar esta medida.",
-  };
 }
 
 function cloneHoleMap(source: Record<TemplateId, Cutout[]>) {
@@ -1738,137 +1645,46 @@ export default function Home() {
     [objects],
   );
 
-  const baseValidation = useMemo(
-    () => validateModel(templateId, parameters),
-    [templateId, parameters],
+  const validation = useMemo(
+    () => getEditorValidation({
+      templateId,
+      parameters,
+      holes,
+      visibleObjects,
+      featureSettings,
+    }),
+    [featureSettings, holes, parameters, templateId, visibleObjects],
   );
-  const featureErrors = useMemo(() => {
-    const errors: string[] = [];
-    holes.forEach((hole, index) => {
-      if (templateId === "free") return;
-      const faceWidth =
-        templateId === "box" && hole.face === "front"
-          ? parameters.width - parameters.wall * 2
-          : parameters.width;
-      const faceHeight =
-        hole.face === "front" ? parameters.height : parameters.depth;
-      const holeHeight = hole.kind === "round" ? hole.width : hole.height;
-      const outsideRectangle =
-        hole.width <= 0 ||
-        holeHeight <= 0 ||
-        Math.abs(hole.x) + hole.width / 2 >= faceWidth / 2 ||
-        Math.abs(hole.z) + holeHeight / 2 >= faceHeight / 2;
-      if (outsideRectangle) {
-        errors.push(`El recorte ${index + 1} queda fuera de la cara seleccionada.`);
-      }
-    });
-    if (
-      templateId === "free" &&
-      visibleObjects.some((object) => object.operation === "hole") &&
-      !visibleObjects.some((object) => object.operation !== "hole")
-    ) {
-      errors.push("Agregá al menos un sólido antes de usar figuras de recorte.");
-    }
-    errors.push(...validateObjects(visibleObjects));
-    if (featureSettings.standoffHole >= featureSettings.standoffDiameter) {
-      errors.push("El agujero del soporte debe ser menor que su diámetro exterior.");
-    }
-    const positiveFeatureValues = [
-      featureSettings.lidThickness,
-      featureSettings.standoffDiameter,
-      featureSettings.standoffHeight,
-      featureSettings.standoffHole,
-    ];
-    if (
-      !Number.isFinite(featureSettings.cornerRadius) ||
-      featureSettings.cornerRadius < 0 ||
-      !Number.isFinite(featureSettings.standoffCount) ||
-      featureSettings.standoffCount < 0 ||
-      positiveFeatureValues.some(
-        (value) => !Number.isFinite(value) || value <= 0,
-      ) ||
-      !["none", "snap", "screw", "slide"].includes(
-        featureSettings.lidStyle,
-      )
-    ) {
-      errors.push("La configuración avanzada contiene valores inválidos.");
-    }
-    return errors;
-  }, [holes, visibleObjects, parameters, templateId, featureSettings]);
-  const validation = {
-    errors: [...baseValidation.errors, ...featureErrors],
-    warnings: baseValidation.warnings,
-  };
-  const isValid = validation.errors.length === 0;
   const hasPrintableGeometry =
     templateId !== "free" ||
     visibleObjects.some((object) => object.operation !== "hole");
-  const canExport = isValid && hasPrintableGeometry;
-  const geometryStatusLabel = !isValid
-    ? "Necesita corrección"
-    : hasPrintableGeometry ? "Modelo válido" : "Sin sólidos";
-  const exportStatusLabel = canExport
-    ? "Listo para exportar"
-    : "Exportación bloqueada";
-  const statusTone: "ready" | "error" | "idle" = !isValid
-    ? "error"
-    : canExport ? "ready" : "idle";
-  const statusDetail = !hasPrintableGeometry
-    ? "Agregá al menos una forma sólida para poder comprobar y exportar."
-    : !isValid
-      ? `${validation.errors.length} ${validation.errors.length === 1 ? "problema bloquea" : "problemas bloquean"} la exportación.`
-      : validation.warnings.length > 0
-        ? `${validation.warnings.length} ${validation.warnings.length === 1 ? "advertencia para revisar" : "advertencias para revisar"} antes de exportar.`
-        : "La pieza no tiene problemas detectados.";
-  const nextStepLabel = !hasPrintableGeometry
-    ? "Próximo paso: agregá una forma para empezar la pieza."
-    : !isValid
-      ? "Próximo paso: revisá y corregí los problemas marcados."
-      : showReview
-        ? "Último paso: exportá el STL."
-        : "Próximo paso: abrí Comprobación.";
-  const statusActionLabel = !hasPrintableGeometry
-    ? templateId === "free"
-      ? "Agregar forma"
-      : "Ajustar medidas"
-    : !showReview
-      ? "Comprobar"
-      : !isValid
-        ? "Corregir problemas"
-        : "Exportar STL";
-  const primaryMeasureKeys = new Set(PRIMARY_MEASURE_KEYS[templateId]);
-  const primaryFields = template.fields.filter((field) =>
-    primaryMeasureKeys.has(field.key),
+  const {
+    isValid,
+    canExport,
+    geometryStatusLabel,
+    exportStatusLabel,
+    statusTone,
+    statusDetail,
+    nextStepLabel,
+    statusActionLabel,
+    topbarPrimaryLabel,
+  } = getEditorStatus({
+    templateId,
+    validation,
+    hasPrintableGeometry,
+    showReview,
+    exporting,
+  });
+  const {
+    primaryFields,
+    secondaryFields,
+    primaryFieldsPreview,
+  } = getTemplateFieldGroups(
+    template.fields,
+    PRIMARY_MEASURE_KEYS[templateId],
+    parameters,
   );
-  const secondaryFields = template.fields.filter(
-    (field) => !primaryMeasureKeys.has(field.key),
-  );
-  const primaryFieldsPreview = primaryFields.slice(0, 4).map((field) => ({
-    key: field.key,
-    label: field.label,
-    value: parameters[field.key],
-  }));
-  const topbarPrimaryLabel = !hasPrintableGeometry
-    ? templateId === "free"
-      ? "Agregar forma"
-      : "Ajustar medidas"
-    : !showReview
-      ? "Comprobar"
-      : !isValid
-        ? "Corregir problemas"
-        : exporting === "stl"
-          ? "Generando…"
-          : "Exportar STL";
-  const validationIssues = [
-    ...validation.errors.map((message) => ({
-      severity: "error" as const,
-      ...describeValidationIssue(message, "error"),
-    })),
-    ...validation.warnings.map((message) => ({
-      severity: "warning" as const,
-      ...describeValidationIssue(message, "warning"),
-    })),
-  ];
+  const validationIssues = getValidationIssues(validation);
   const volumeCm3 = useMemo(
     () => (isValid ? estimatedVolumeCm3(templateId, parameters, options) : 0),
     [isValid, templateId, parameters, options],
