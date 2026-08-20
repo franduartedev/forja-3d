@@ -6438,8 +6438,28 @@ input::-webkit-inner-spin-button {
   }
 
   .top-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
     width: 100%;
+    align-items: center;
     justify-content: space-between;
+  }
+
+  .workflow-steps {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .workflow-steps span {
+    min-width: 0;
+    padding-inline: 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .topbar-utility,
+  .button.compact {
+    flex: 0 0 auto;
   }
 
   .top-actions .button {
